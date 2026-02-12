@@ -1,0 +1,59 @@
+# =============================================
+# C200 Controller — .gitignore
+# =============================================
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Xcode
+*.xcworkspace
+*.xcuserdata/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+*.resolved
+
+# ESP32Flasher — separate project/repo, not part of this repo
+ESP32Flasher/
+
+# Large binary files (datasheets, etc.)
+*.pdf
+
+# Node / companion-module
+companion-module/node_modules/
+companion-module/.npmrc
+
+# Environment / secrets
+.env
+*.env
+secrets/
+
+# Log files (local debug only)
+*.log
+c200_debug.log
+
+# Archives (never commit release zips to tree)
+*.zip
+*.dmg
+
+# Editors
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OneDrive metadata
+desktop.ini
