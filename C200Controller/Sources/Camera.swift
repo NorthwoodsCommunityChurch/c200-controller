@@ -9,17 +9,53 @@ struct Camera: Identifiable, Codable, Equatable {
     var ip: String              // Current IP address
     var connectionType: ConnectionType
     var isAutoDiscovered: Bool  // True if found via Bonjour
+    var tslIndices: [Int] = []  // TSL display indices (1-based) for tally assignment
 
     enum ConnectionType: String, Codable {
         case esp32
         case direct
     }
 
+    init(id: String, name: String, ip: String, connectionType: ConnectionType,
+         isAutoDiscovered: Bool, tslIndices: [Int] = []) {
+        self.id = id
+        self.name = name
+        self.ip = ip
+        self.connectionType = connectionType
+        self.isAutoDiscovered = isAutoDiscovered
+        self.tslIndices = tslIndices
+    }
+
+    // Separate key enum for legacy migration (decoder only)
+    private enum LegacyKeys: String, CodingKey { case tslIndex }
+
+    // Custom decoder: migrates old tslIndex (Int?) to tslIndices ([Int])
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        ip = try c.decode(String.self, forKey: .ip)
+        connectionType = try c.decode(ConnectionType.self, forKey: .connectionType)
+        isAutoDiscovered = try c.decode(Bool.self, forKey: .isAutoDiscovered)
+        if let indices = try? c.decode([Int].self, forKey: .tslIndices) {
+            tslIndices = indices
+        } else {
+            // Migrate from old single-index format
+            let legacy = try? decoder.container(keyedBy: LegacyKeys.self)
+            if let single = try? legacy?.decode(Int.self, forKey: .tslIndex) {
+                tslIndices = [single]
+            } else {
+                tslIndices = []
+            }
+        }
+    }
+
     static func == (lhs: Camera, rhs: Camera) -> Bool {
         lhs.id == rhs.id &&
         lhs.name == rhs.name &&
         lhs.ip == rhs.ip &&
-        lhs.connectionType == rhs.connectionType
+        lhs.connectionType == rhs.connectionType &&
+        lhs.tslIndices == rhs.tslIndices
     }
 }
 
@@ -50,6 +86,10 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     @Published var wbKelvin = "--"
     @Published var afMode = "--"
     @Published var faceDetect = "--"
+
+    // Tally state
+    @Published var tallyProgram = false
+    @Published var tallyPreview = false
 
     // Command state
     @Published var isCommandPending = false
@@ -106,6 +146,11 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
                     isConnected = success
                     if success {
                         startPolling()
+                        // Restore saved brightness on connect
+                        let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
+                        let pct = savedPct == 0 ? 100 : savedPct
+                        let esp32Value = Int(Double(pct) / 100.0 * 255.0)
+                        Task { await self.sendBrightness(esp32Value) }
                     } else {
                         scheduleReconnectIfEnabled()
                     }
@@ -259,6 +304,12 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
             if let k = wbvk["value"] as? String { wbKelvin = k + "K" }
         }
         if let afm  = json["afm"]  as? [String: Any] { afMode    = afm["value"]  as? String ?? "--" }
+
+        // Parse tally state from ESP32
+        if let tallyStr = json["tally"] as? String {
+            tallyProgram = (tallyStr == "program" || tallyStr == "both")
+            tallyPreview = (tallyStr == "preview" || tallyStr == "both")
+        }
     }
 
     private func fetchESP32Status() async throws {
@@ -811,5 +862,55 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         }
 
         return Double(cleaned)
+    }
+
+    // MARK: - Tally Control
+
+    func updateTallyState(program: Bool, preview: Bool) async {
+        guard camera.connectionType == .esp32 else {
+            // Direct connection cameras: update border only, no LED control
+            await MainActor.run {
+                self.tallyProgram = program
+                self.tallyPreview = preview
+            }
+            return
+        }
+
+        // Determine command — program always wins over preview
+        let command: String
+        if program {
+            command = "program"
+        } else if preview {
+            command = "preview"
+        } else {
+            command = "off"
+        }
+
+        // Send to ESP32
+        do {
+            var request = URLRequest(url: URL(string: "http://\(camera.ip)/api/tally/\(command)")!)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 2.0
+            _ = try await session.data(for: request)
+
+            // Note: Don't update local state here - let WebSocket feedback confirm LED state
+            // This creates proper synchronization: POST → ESP32 → WebSocket → Dashboard
+        } catch {
+            appLog("Tally command error for \(camera.name): \(error)")
+        }
+    }
+
+    func sendBrightness(_ value: Int) async {
+        guard camera.connectionType == .esp32 else { return }
+        let clamped = max(0, min(255, value))
+        do {
+            var request = URLRequest(url: URL(string: "http://\(camera.ip)/api/tally/brightness/\(clamped)")!)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 2.0
+            _ = try await session.data(for: request)
+            appLog("Brightness set to \(clamped) on \(camera.name)")
+        } catch {
+            appLog("Brightness command error for \(camera.name): \(error)")
+        }
     }
 }

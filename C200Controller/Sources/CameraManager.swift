@@ -30,6 +30,13 @@ class CameraManager: ObservableObject {
         }
     }
 
+    // TSL tally support
+    @Published var tslEnabled = false
+    @Published var tslPort: UInt16 = 5201
+    @Published var tslListening = false       // port is bound and accepting
+    @Published var tslClientConnected = false // a switcher is actively connected
+    private var tslClient: TSLClient?
+
     private var browser: NWBrowser?
     private let persistenceKey = "known_cameras_v2"
     private let autoReconnectKey = "auto_reconnect_enabled"
@@ -44,9 +51,21 @@ class CameraManager: ObservableObject {
         // Load auto-reconnect setting
         self.autoReconnect = UserDefaults.standard.bool(forKey: autoReconnectKey)
 
+        // Restore TSL settings
+        tslEnabled = UserDefaults.standard.bool(forKey: "tsl_enabled")
+        let savedPort = UserDefaults.standard.integer(forKey: "tsl_port")
+        if savedPort > 0 && savedPort <= 65535 {
+            tslPort = UInt16(savedPort)
+        }
+
         loadCameras()
         startBonjourDiscovery()
         connectAllCameras()
+
+        // Start TSL listener if enabled
+        if tslEnabled {
+            startTSL()
+        }
     }
 
     deinit {
@@ -63,7 +82,7 @@ class CameraManager: ObservableObject {
         }
     }
 
-    private func saveCameras() {
+    func saveCameras() {
         if let data = try? JSONEncoder().encode(cameras) {
             UserDefaults.standard.set(data, forKey: persistenceKey)
             print("Saved \(cameras.count) cameras to storage")
@@ -311,5 +330,73 @@ class CameraManager: ObservableObject {
         discoveredESP32s.removeAll()
         browser?.cancel()
         startBonjourDiscovery()
+    }
+
+    // MARK: - TSL Tally Integration
+
+    func startTSL() {
+        guard tslClient == nil else { return }
+
+        tslClient = TSLClient(host: "", port: tslPort)
+
+        tslClient?.onConnectionChange = { [weak self] listening in
+            Task { @MainActor in
+                self?.tslListening = listening
+                if !listening { self?.tslClientConnected = false }
+                appLog("TSL listener \(listening ? "ready" : "stopped")")
+            }
+        }
+
+        tslClient?.onClientConnected = { [weak self] in
+            Task { @MainActor in
+                self?.tslClientConnected = true
+                appLog("TSL: switcher connected")
+            }
+        }
+
+        tslClient?.onClientDisconnected = { [weak self] in
+            Task { @MainActor in
+                self?.tslClientConnected = false
+                appLog("TSL: switcher disconnected")
+            }
+        }
+
+        tslClient?.onTallyUpdate = { [weak self] index, isProgram, isPreview in
+            Task { @MainActor in
+                self?.handleTallyUpdate(index: index, isProgram: isProgram, isPreview: isPreview)
+            }
+        }
+
+        tslClient?.connect()
+        tslEnabled = true
+        UserDefaults.standard.set(true, forKey: "tsl_enabled")
+        UserDefaults.standard.set(Int(tslPort), forKey: "tsl_port")
+    }
+
+    func stopTSL() {
+        tslClient?.disconnect()
+        tslClient = nil
+        tslEnabled = false
+        tslListening = false
+        tslClientConnected = false
+        UserDefaults.standard.set(false, forKey: "tsl_enabled")
+    }
+
+    private func handleTallyUpdate(index: Int, isProgram: Bool, isPreview: Bool) {
+        // Find cameras with this TSL index in their assigned indices
+        let matchingCameras = cameras.filter { $0.tslIndices.contains(index) }
+
+        guard !matchingCameras.isEmpty else { return }
+
+        appLog("TSL update: index=\(index), program=\(isProgram), preview=\(isPreview) → \(matchingCameras.count) camera(s)")
+
+        // Update all matching cameras
+        for camera in matchingCameras {
+            if let state = cameraStates[camera.id] {
+                Task {
+                    await state.updateTallyState(program: isProgram, preview: isPreview)
+                }
+            }
+        }
     }
 }

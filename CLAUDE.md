@@ -56,7 +56,7 @@ enum ConnectionType: String, Codable {
 
 ## ESP32 Bridge API
 
-**Control endpoints (POST):**
+**Camera control endpoints (POST):**
 - `/api/camera/iris/{plus|minus}`
 - `/api/camera/iso/{plus|minus}`
 - `/api/camera/shutter/{plus|minus}`
@@ -65,6 +65,15 @@ enum ConnectionType: String, Codable {
 - `/api/camera/aes/{plus|minus}`
 - `/api/camera/wbk/{plus|minus}`
 - `/api/camera/rec` — toggle recording
+
+**Tally control endpoints (POST):**
+- `/api/tally/brightness/{0-255}` — set LED PWM brightness (register BEFORE `/api/tally/*`)
+- `/api/tally/program` — red LED on at current brightness
+- `/api/tally/preview` — green LED on at current brightness
+- `/api/tally/both` — both LEDs on (amber) at current brightness
+- `/api/tally/off` — both LEDs off
+
+**Important:** `/api/tally/brightness/*` must be registered before `/api/tally/*` in the HTTP server. ESP-IDF uses first-match ordering for wildcard routes — if the general wildcard is first, it intercepts brightness requests.
 
 **State endpoints (GET):**
 - `/api/status` — ESP32 + camera connected/recording status
@@ -81,9 +90,12 @@ enum ConnectionType: String, Codable {
   "eth_connected": true,
   "av": { "value": "F2.8", "enabled": true },
   "gcv": { "value": "800", "enabled": true },
-  "ssv": { "value": "180.00", "enabled": true }
+  "ssv": { "value": "180.00", "enabled": true },
+  "tally": "off"
 }
 ```
+
+**Tally field values:** `"off"`, `"program"`, `"preview"`, `"both"`
 
 ## Canon C200 API Property Keys
 
@@ -123,6 +135,75 @@ Dashboard side:
 2. Adaptive poll: checks `getCurrentValue()` every 50ms
 3. Exits poll when value changes OR after timeout (3000ms iris, 1500ms others)
 
+## TSL Tally System
+
+The dashboard receives TSL UMD protocol packets from video switchers (ATEM, etc.) and controls RGB LEDs on each ESP32 bridge.
+
+### Architecture
+
+```
+Video Switcher → TSL TCP (port 5201) → Dashboard TSLClient → Camera TSL Assignment → ESP32 /api/tally → RGB LED
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `TSLClient.swift` | TCP listener for TSL 3.1 and 5.0 protocols |
+| `TallySettingsView.swift` | UI for TSL port config, camera assignments, LED brightness |
+| `Camera.swift` | `tslIndices: [Int]` field, tally state, `updateTallyState()`, `sendBrightness()` |
+| `CameraManager.swift` | TSL lifecycle, tally propagation, listening/connected state tracking |
+| `ContentView.swift` | Tally border rendering on camera tiles |
+
+### TSL Protocol Support
+
+- **TSL UMD 3.1** (18-byte fixed format) — most common
+- **TSL UMD 5.0** (variable length) — newer format
+- **TCP only** (port 5201 configurable) — UDP not supported
+- Automatic protocol detection based on packet structure
+
+### Camera Assignment
+
+Each camera can be assigned one or more TSL indices (1-127) via a multi-select popover in Tally Settings (Cmd+Shift+T). When a TSL packet arrives with a matching index:
+1. Dashboard matches index to all cameras with that index in their `tslIndices` array
+2. Sends POST to `/api/tally/{state}` on each matching ESP32
+3. ESP32 sets RGB LED at current brightness and broadcasts via WebSocket
+4. Dashboard shows tally border (red=program, green=preview)
+
+Multiple cameras can share the same TSL index (both will light up). Multiple indices per camera are supported (e.g., a camera on inputs 1 and 5 will respond to either).
+
+**TSL state logic:** Program always wins over preview — if program=true, "program" is sent regardless of preview state. This avoids the brief amber flash that occurs when some switchers (ATEM) momentarily send both program and preview true during a cut.
+
+**LED brightness:** Global brightness slider (1–100%) in Tally Settings sends PWM value (0–255) to all ESP32s via `/api/tally/brightness/{value}`. Brightness is persisted in UserDefaults and restored when each ESP32 connects.
+
+### LED Wiring
+
+ESP32 GPIO pins for tally LEDs (controlled via LEDC PWM for brightness):
+- **GPIO 1** — Red LED (program)
+- **GPIO 2** — Green LED (preview)
+- Standard 5mm LEDs with 220Ω resistors to GND
+- LEDC timer 0, channels 0 (red) and 1 (green), 8-bit resolution (0–255), 1000 Hz
+
+### TSL Status (Three States)
+
+The dashboard TSL indicator shows three states:
+- **Gray** — TSL disabled
+- **Yellow** — Listening (port bound, no switcher connected)
+- **Green** — Switcher connected and sending data
+
+### Testing
+
+**Python test script:**
+```bash
+python3 test_tsl.py  # automated sequence
+python3 test_tsl.py --interactive  # manual testing
+```
+
+**Bash ESP32 test:**
+```bash
+bash test_esp32_tally.sh  # direct ESP32 REST API test
+```
+
 ## Hardware
 
 - ESP32-S3-ETH board (W5500 Ethernet)
@@ -142,6 +223,46 @@ Firmware is built with network credentials via ESP32Flasher app. **Never hardcod
 #define ETH_STATIC_IP  "1.1.1.1"      // ESP32 Ethernet IP (must be same subnet)
 ```
 
+## ESP32 Firmware Development
+
+**IMPORTANT:** The ESP32Flasher GUI app is NOT used for development. Use direct ESP-IDF commands instead.
+
+### Firmware Location
+
+Source file: `ESP32Flasher/FirmwareTemplate/main/main.c`
+
+This is the C firmware that runs on the ESP32-S3 bridge. All camera control, HTTP server, WebSocket, and tally LED logic lives here.
+
+### Build & Flash Workflow
+
+ESP-IDF is installed at `~/esp/esp-idf/`
+
+**Build firmware:**
+```bash
+cd "/Users/aaronlarson/Library/CloudStorage/OneDrive-NorthwoodsCommunityChurch/VS Code/ESP32 Canon C200/ESP32Flasher/FirmwareTemplate"
+source ~/esp/esp-idf/export.sh 2>/dev/null
+idf.py build
+```
+
+**Flash to ESP32:**
+```bash
+idf.py -p /dev/cu.usbmodem2101 flash
+```
+
+**Monitor serial output:**
+```bash
+idf.py -p /dev/cu.usbmodem2101 monitor
+```
+
+**Note:** Serial port may vary. Use `ls /dev/cu.*` to find the correct port when ESP32 is plugged in.
+
+### Development Notes
+
+- Network credentials (WiFi SSID/password, camera IP, ESP32 static IP) are hardcoded in `main.c` during development
+- The ESP32Flasher GUI app exists for end-user firmware flashing but is not used in the dev workflow
+- After code changes: clean build recommended (`idf.py fullclean && idf.py build`)
+- Build artifacts stored in `FirmwareTemplate/build/`
+
 ## Pending Work
 
 - [ ] Sparkle auto-updates (required before stable release)
@@ -158,8 +279,20 @@ tail -f ~/Library/Logs/c200_debug.log
 
 Log is cleared on each app launch.
 
+## Security Notes
+
+This tool is **local-network-only** (closed church WiFi + Ethernet). Known by-design posture:
+
+- **HTTP not HTTPS**: Canon C200 local API doesn't support HTTPS. All traffic stays on isolated production network.
+- **No authentication on ESP32 endpoints**: Intentional for local trusted environment. Anyone on the network can send commands.
+- **Camera credentials hardcoded**: `admin:admin` (Canon default) in Camera.swift. Not persisted — change requires rebuild.
+- **WiFi credentials in firmware**: Hardcoded in `main.c` during development; provisioned via ESP32Flasher tool for end-user units.
+- **CORS wildcard** (`Access-Control-Allow-Origin: *`): Acceptable for local-only — not internet-exposed.
+
+Before any public/shared release: move credentials to Keychain (camera) and NVS/provisioning (WiFi).
+
 ## Version
 
-Current: `v1.0.0-alpha` (build 1)
-CFBundleVersion: 1
-MARKETING_VERSION: 1.0.0
+Current: `v1.0.1-alpha` (build 2)
+CFBundleVersion: 2
+MARKETING_VERSION: 1.0.1

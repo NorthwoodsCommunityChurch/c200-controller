@@ -467,7 +467,23 @@ struct TileFront: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(state.isRecording ? Color.error : Color.primary.opacity(0.1), lineWidth: state.isRecording ? 2 : 1)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(tallyBorderColor, lineWidth: 4)
+        )
         .animation(.easeInOut(duration: 0.2), value: state.isRecording)
+        .animation(.easeInOut(duration: 0.15), value: state.tallyProgram)
+        .animation(.easeInOut(duration: 0.15), value: state.tallyPreview)
+    }
+
+    // Tally border color
+    private var tallyBorderColor: Color {
+        if state.tallyProgram {
+            return Color(red: 1.0, green: 0, blue: 0)  // Red
+        } else if state.tallyPreview {
+            return Color(red: 0, green: 1.0, blue: 0)  // Green
+        }
+        return .clear
     }
 
     // Progress calculations
