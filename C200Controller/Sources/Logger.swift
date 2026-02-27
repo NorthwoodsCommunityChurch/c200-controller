@@ -4,7 +4,8 @@ import Foundation
 /// View log in Terminal:  tail -f ~/Library/Logs/c200_debug.log
 import Darwin
 
-let logPath = "/Users/aaronlarson/Library/Logs/c200_debug.log"
+let logPath = FileManager.default.homeDirectoryForCurrentUser
+    .appendingPathComponent("Library/Logs/c200_debug.log").path
 
 func appLog(_ message: String) {
     let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)

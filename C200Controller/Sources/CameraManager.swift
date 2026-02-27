@@ -62,9 +62,11 @@ class CameraManager: ObservableObject {
         startBonjourDiscovery()
         connectAllCameras()
 
-        // Start TSL listener if enabled
+        // Start TSL listener if enabled — delayed so the network stack is ready
         if tslEnabled {
-            startTSL()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.startTSL()
+            }
         }
     }
 

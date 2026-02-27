@@ -70,6 +70,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     @Published var isConnected = false
     @Published var isConnecting = false
     @Published var connectionError: String?
+    @Published var esp32Reachable = false
 
     // ESP32 state (only for ESP32 connections)
     @Published var wifiConnected = false
@@ -86,6 +87,9 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     @Published var wbKelvin = "--"
     @Published var afMode = "--"
     @Published var faceDetect = "--"
+
+    // Firmware version (ESP32 only)
+    @Published var firmwareVersion = "--"
 
     // Tally state
     @Published var tallyProgram = false
@@ -168,7 +172,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
             }
         } catch {
             await MainActor.run {
-                connectionError = error.localizedDescription
+                connectionError = friendlyError(error)
                 isConnected = false
                 scheduleReconnectIfEnabled()
             }
@@ -214,7 +218,24 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         reconnectTimer = nil
         isConnected = false
         isReconnecting = false
+        esp32Reachable = false
         cameraCookies = ""
+    }
+
+    // MARK: - Helpers
+
+    private func friendlyError(_ error: Error) -> String {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .timedOut:              return "Connection timed out"
+            case .cannotConnectToHost:   return "Cannot reach ESP32"
+            case .networkConnectionLost: return "Connection lost"
+            case .notConnectedToInternet: return "No network"
+            case .cannotFindHost:        return "Host not found"
+            default:                     return "Connection failed"
+            }
+        }
+        return "Connection failed"
     }
 
     // MARK: - ESP32 Connection
@@ -228,6 +249,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         }
 
         await MainActor.run {
+            self.esp32Reachable = true
             self.wifiConnected = json["wifi_connected"] as? Bool ?? false
             self.ethConnected = json["eth_connected"] as? Bool ?? false
             self.isRecording = json["is_recording"] as? Bool ?? false
@@ -269,6 +291,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
                 }
                 self.receiveWebSocketMessage()
             case .failure:
+                Task { @MainActor [weak self] in self?.esp32Reachable = false }
                 // Reconnect after 3 seconds
                 self.webSocketReconnectTask = Task {
                     try? await Task.sleep(nanoseconds: 3_000_000_000)
@@ -286,6 +309,8 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
         let isoVal = (json["gcv"] as? [String: Any])?["value"] as? String ?? "?"
         appLog("WS \(camera.name): iso=\(isoVal)")
+
+        esp32Reachable = true
 
         // Status
         isConnected = json["camera_connected"] as? Bool ?? false
@@ -321,10 +346,14 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         }
 
         await MainActor.run {
+            self.esp32Reachable = true
             self.wifiConnected = json["wifi_connected"] as? Bool ?? false
             self.ethConnected = json["eth_connected"] as? Bool ?? false
             self.isConnected = json["camera_connected"] as? Bool ?? false
             self.isRecording = json["is_recording"] as? Bool ?? false
+            if let fw = json["firmware_version"] as? String {
+                self.firmwareVersion = fw
+            }
         }
     }
 

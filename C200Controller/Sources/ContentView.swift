@@ -55,6 +55,8 @@ struct ContentView: View {
 
 struct HeaderView: View {
     @EnvironmentObject var cameraManager: CameraManager
+    @State private var showingFirmwareUpdate = false
+    @State private var showingTallySettings = false
 
     private var connectedCount: Int {
         cameraManager.cameraStates.values.filter { $0.isConnected }.count
@@ -62,6 +64,18 @@ struct HeaderView: View {
 
     private var recordingCount: Int {
         cameraManager.cameraStates.values.filter { $0.isRecording }.count
+    }
+
+    private var tslStatusColor: Color {
+        if cameraManager.tslClientConnected { return .success }
+        if cameraManager.tslListening { return .warning }
+        return Color(white: 0.35)
+    }
+
+    private var tslStatusHelp: String {
+        if cameraManager.tslClientConnected { return "TSL: Switcher connected" }
+        if cameraManager.tslListening { return "TSL: Listening on port \(cameraManager.tslPort)..." }
+        return "TSL: Off"
     }
 
     var body: some View {
@@ -93,11 +107,59 @@ struct HeaderView: View {
                             .foregroundColor(.error)
                     }
                 }
+
+                // TSL status + toggle + settings
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(tslStatusColor)
+                        .frame(width: 8, height: 8)
+                        .help(tslStatusHelp)
+                    Text("TSL")
+                        .font(.system(size: 12))
+                        .foregroundColor(.textSecondary)
+                    Toggle("", isOn: Binding(
+                        get: { cameraManager.tslEnabled },
+                        set: { enabled in
+                            if enabled { cameraManager.startTSL() }
+                            else { cameraManager.stopTSL() }
+                        }
+                    ))
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .labelsHidden()
+                    Button {
+                        showingTallySettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 13))
+                            .foregroundColor(.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("TSL Settings (⌘⇧T)")
+                }
+
+                Button {
+                    showingFirmwareUpdate = true
+                } label: {
+                    Image(systemName: "arrow.up.circle")
+                        .font(.system(size: 16))
+                        .foregroundColor(.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .help("Firmware Update (⌘⇧U)")
             }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .background(Color.backgroundSecondary)
+        .sheet(isPresented: $showingTallySettings) {
+            TallySettingsView()
+                .environmentObject(cameraManager)
+        }
+        .sheet(isPresented: $showingFirmwareUpdate) {
+            FirmwareUpdateView()
+                .environmentObject(cameraManager)
+        }
     }
 }
 
@@ -404,25 +466,28 @@ struct TileFront: View {
                                 ForEach(0..<3, id: \.self) { _ in PlaceholderCircle() }
                             }
                         }
-                        VStack(spacing: 4) {
-                            if let error = state.connectionError {
-                                Text(error)
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.error)
-                                    .multilineTextAlignment(.center)
-                                    .lineLimit(2)
+                        VStack(spacing: 6) {
+                            if camera.connectionType == .esp32 {
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(state.esp32Reachable ? Color.green : Color.red)
+                                        .frame(width: 6, height: 6)
+                                    Text(state.esp32Reachable ? "ESP32 Online" : "ESP32 Offline")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.textSecondary)
+                                }
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(state.isConnected ? Color.green : Color.red)
+                                        .frame(width: 6, height: 6)
+                                    Text(state.isConnected ? "Camera Online" : "Camera Disconnected")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.textSecondary)
+                                }
                             } else {
                                 Text("Not connected")
                                     .font(.system(size: 12))
                                     .foregroundColor(.textSecondary)
-                            }
-                            if state.isReconnecting {
-                                HStack(spacing: 4) {
-                                    ProgressView().scaleEffect(0.6)
-                                    Text("Reconnecting...")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.textSecondary)
-                                }
                             }
                         }
                         .padding(.horizontal, 12)
@@ -598,7 +663,13 @@ struct TileBack: View {
                 }
             }
 
-            Spacer(minLength: 8)
+            Divider().background(Color.backgroundCard)
+
+            // TSL Tally section
+            TileTallySection(camera: camera, state: state)
+                .environmentObject(cameraManager)
+
+            Spacer(minLength: 4)
 
             // Remove camera button
             Button {
@@ -627,6 +698,113 @@ struct TileBack: View {
         )
     }
 }
+
+// MARK: - Tile Tally Section
+
+struct TileTallySection: View {
+    let camera: Camera
+    @ObservedObject var state: CameraState
+    @EnvironmentObject var cameraManager: CameraManager
+    @State private var showingIndexPicker = false
+
+    private var tslIndices: [Int] {
+        cameraManager.cameras.first { $0.id == camera.id }?.tslIndices ?? []
+    }
+
+    private var assignmentLabel: String {
+        if tslIndices.isEmpty { return "None" }
+        let sorted = tslIndices.sorted()
+        if sorted.count <= 4 { return sorted.map(String.init).joined(separator: ", ") }
+        return sorted.prefix(3).map(String.init).joined(separator: ", ") + " +\(sorted.count - 3)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Header row: label + live tally dots
+            HStack {
+                Text("TALLY")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.textSecondary)
+                    .tracking(1)
+                Spacer()
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(state.tallyProgram ? Color.error : Color(white: 0.25))
+                        .frame(width: 9, height: 9)
+                    Circle()
+                        .fill(state.tallyPreview ? Color.success : Color(white: 0.25))
+                        .frame(width: 9, height: 9)
+                }
+            }
+
+            // TSL input assignment
+            if camera.connectionType == .esp32 {
+                HStack(spacing: 6) {
+                    Text("Inputs:")
+                        .font(.system(size: 10))
+                        .foregroundColor(.textSecondary)
+
+                    Button {
+                        showingIndexPicker = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(assignmentLabel)
+                                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                .foregroundColor(tslIndices.isEmpty ? .textSecondary : .textPrimary)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8))
+                                .foregroundColor(.textSecondary)
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(Color.backgroundCard)
+                        .cornerRadius(5)
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showingIndexPicker, arrowEdge: .bottom) {
+                        TSLIndexPicker(selectedIndices: Binding(
+                            get: { tslIndices },
+                            set: { newIndices in
+                                if let idx = cameraManager.cameras.firstIndex(where: { $0.id == camera.id }) {
+                                    cameraManager.cameras[idx].tslIndices = newIndices
+                                    cameraManager.saveCameras()
+                                }
+                            }
+                        ))
+                    }
+
+                    Spacer()
+
+                    // Debug buttons
+                    HStack(spacing: 4) {
+                        Button { Task { await state.updateTallyState(program: true, preview: false) } } label: {
+                            Text("PGM").font(.system(size: 9, weight: .bold)).foregroundColor(.white)
+                                .padding(.horizontal, 5).padding(.vertical, 3)
+                                .background(Color.error).cornerRadius(3)
+                        }
+                        .buttonStyle(.plain).help("Force program tally")
+
+                        Button { Task { await state.updateTallyState(program: false, preview: true) } } label: {
+                            Text("PVW").font(.system(size: 9, weight: .bold)).foregroundColor(.white)
+                                .padding(.horizontal, 5).padding(.vertical, 3)
+                                .background(Color.success).cornerRadius(3)
+                        }
+                        .buttonStyle(.plain).help("Force preview tally")
+
+                        Button { Task { await state.updateTallyState(program: false, preview: false) } } label: {
+                            Text("OFF").font(.system(size: 9, weight: .semibold)).foregroundColor(.textSecondary)
+                                .padding(.horizontal, 5).padding(.vertical, 3)
+                                .background(Color.backgroundCard).cornerRadius(3)
+                        }
+                        .buttonStyle(.plain).help("Clear tally")
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Info Row
 
 struct InfoRow: View {
     let label: String

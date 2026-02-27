@@ -75,8 +75,11 @@ enum ConnectionType: String, Codable {
 
 **Important:** `/api/tally/brightness/*` must be registered before `/api/tally/*` in the HTTP server. ESP-IDF uses first-match ordering for wildcard routes — if the general wildcard is first, it intercepts brightness requests.
 
+**Camera Positions display endpoint (POST):**
+- `/api/display` — receives `{"operator": "Name", "lens": "Lens"}` from Camera Positions app; updates OLED rows 1–2
+
 **State endpoints (GET):**
-- `/api/status` — ESP32 + camera connected/recording status
+- `/api/status` — ESP32 + camera connected/recording status (includes `camera_number` field)
 - `/api/camera/state` — full settings JSON
 - `/ws` — WebSocket for push updates
 
@@ -263,6 +266,17 @@ idf.py -p /dev/cu.usbmodem2101 monitor
 - After code changes: clean build recommended (`idf.py fullclean && idf.py build`)
 - Build artifacts stored in `FirmwareTemplate/build/`
 
+## OLED Display Layout (128×32, 4 rows)
+
+| Row | When `CAMERA_NUMBER > 0`         | When `CAMERA_NUMBER == 0`       |
+|-----|----------------------------------|---------------------------------|
+| 0   | `CAM N  Tally: PRG`              | `WiFi:OK  Eth:OK`               |
+| 1   | Operator name (from `/api/display`) | Operator name                |
+| 2   | First lens name (from `/api/display`) | First lens name             |
+| 3   | `Cam:OK  Rec:LIVE`               | `Cam:OK  Rec:LIVE`              |
+
+**To set camera number:** Edit `#define CAMERA_NUMBER N` in `main.c` before flashing.
+
 ## Pending Work
 
 - [ ] Sparkle auto-updates (required before stable release)
@@ -293,6 +307,6 @@ Before any public/shared release: move credentials to Keychain (camera) and NVS/
 
 ## Version
 
-Current: `v1.0.1-alpha` (build 2)
-CFBundleVersion: 2
-MARKETING_VERSION: 1.0.1
+Current: `v1.0.3` (build 3)
+CFBundleVersion: 3
+MARKETING_VERSION: 1.0.3
