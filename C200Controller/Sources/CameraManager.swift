@@ -112,6 +112,16 @@ class CameraManager: ObservableObject {
 
     // MARK: - Camera Management
 
+    /// Creates a CameraState with autoReconnect and onConnected wired up.
+    private func makeState(for camera: Camera) -> CameraState {
+        let state = CameraState(camera: camera)
+        state.autoReconnectEnabled = autoReconnect
+        state.onConnected = { [weak self] in
+            self?.pushPositionsToESP32(camera: camera)
+        }
+        return state
+    }
+
     func addCamera(_ camera: Camera) {
         // Don't add duplicates
         guard !cameras.contains(where: { $0.id == camera.id }) else {
@@ -127,7 +137,7 @@ class CameraManager: ObservableObject {
         saveCameras()
 
         // Create state and connect
-        let state = CameraState(camera: camera)
+        let state = makeState(for: camera)
         cameraStates[camera.id] = state
         Task {
             await state.connect()
@@ -157,8 +167,7 @@ class CameraManager: ObservableObject {
 
     private func connectAllCameras() {
         for camera in cameras {
-            let state = CameraState(camera: camera)
-            state.autoReconnectEnabled = autoReconnect
+            let state = makeState(for: camera)
             cameraStates[camera.id] = state
             Task {
                 await state.connect()
@@ -319,7 +328,7 @@ class CameraManager: ObservableObject {
                                     state.disconnect()
                                 }
                                 let updatedCamera = cameras[existingIndex]
-                                let state = CameraState(camera: updatedCamera)
+                                let state = makeState(for: updatedCamera)
                                 cameraStates[espId] = state
                                 Task {
                                     await state.connect()
@@ -430,6 +439,7 @@ class CameraManager: ObservableObject {
         positionsClient = CameraPositionsClient()
         positionsClient?.onAssignmentsUpdate = { [weak self] assignments in
             self?.positionsAssignments = assignments
+            self?.pushAllPositions(using: assignments)
         }
         positionsClient?.start(host: positionsHost, port: positionsPort)
         positionsEnabled = true
@@ -444,5 +454,48 @@ class CameraManager: ObservableObject {
         positionsEnabled = false
         positionsAssignments = [:]
         UserDefaults.standard.set(false, forKey: "positions_enabled")
+    }
+
+    /// Push positions data to all eligible ESP32 boards using the given assignments dict.
+    private func pushAllPositions(using assignments: [Int: CameraAssignment]) {
+        for camera in cameras {
+            pushPositionsToESP32(camera: camera, using: assignments)
+        }
+    }
+
+    /// Push positions data for a single camera (called on connect or on assignments update).
+    func pushPositionsToESP32(camera: Camera, using assignments: [Int: CameraAssignment]? = nil) {
+        guard camera.connectionType == .esp32 else { return }
+        guard let number = camera.positionsNumber else { return }
+
+        let lookup = assignments ?? positionsAssignments
+        guard let assignment = lookup[number] else { return }
+
+        let ip = camera.ip
+        let operatorName = assignment.operatorName ?? ""
+        let lens = assignment.lenses.first ?? ""
+
+        Task {
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 3
+            let session = URLSession(configuration: config)
+
+            guard let url = URL(string: "http://\(ip)/api/display") else { return }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.timeoutInterval = 3
+
+            let body: [String: String] = ["operator": operatorName, "lens": lens]
+            guard let data = try? JSONSerialization.data(withJSONObject: body) else { return }
+            request.httpBody = data
+
+            do {
+                _ = try await session.data(for: request)
+                appLog("Positions pushed to \(camera.name): \"\(operatorName)\" / \"\(lens)\"")
+            } catch {
+                appLog("Positions push failed for \(camera.name): \(error.localizedDescription)")
+            }
+        }
     }
 }

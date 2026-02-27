@@ -107,6 +107,9 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     var autoReconnectEnabled = false
     private var reconnectTimer: Timer?
 
+    // Called by CameraManager when this camera successfully connects
+    var onConnected: (() -> Void)?
+
     // Networking
     private var pollTimer: Timer?
     private var isDirectPolling = false
@@ -159,6 +162,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
                         let pct = savedPct == 0 ? 100 : savedPct
                         let esp32Value = Int(Double(pct) / 100.0 * 255.0)
                         Task { await self.sendBrightness(esp32Value) }
+                        onConnected?()
                     } else {
                         scheduleReconnectIfEnabled()
                     }
