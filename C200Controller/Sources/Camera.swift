@@ -10,6 +10,7 @@ struct Camera: Identifiable, Codable, Equatable {
     var connectionType: ConnectionType
     var isAutoDiscovered: Bool  // True if found via Bonjour
     var tslIndices: [Int] = []  // TSL display indices (1-based) for tally assignment
+    var positionsNumber: Int? = nil  // Camera Position # for Camera Positions integration
 
     enum ConnectionType: String, Codable {
         case esp32
@@ -17,13 +18,14 @@ struct Camera: Identifiable, Codable, Equatable {
     }
 
     init(id: String, name: String, ip: String, connectionType: ConnectionType,
-         isAutoDiscovered: Bool, tslIndices: [Int] = []) {
+         isAutoDiscovered: Bool, tslIndices: [Int] = [], positionsNumber: Int? = nil) {
         self.id = id
         self.name = name
         self.ip = ip
         self.connectionType = connectionType
         self.isAutoDiscovered = isAutoDiscovered
         self.tslIndices = tslIndices
+        self.positionsNumber = positionsNumber
     }
 
     // Separate key enum for legacy migration (decoder only)
@@ -48,6 +50,7 @@ struct Camera: Identifiable, Codable, Equatable {
                 tslIndices = []
             }
         }
+        positionsNumber = try? c.decode(Int.self, forKey: .positionsNumber)
     }
 
     static func == (lhs: Camera, rhs: Camera) -> Bool {
@@ -55,7 +58,8 @@ struct Camera: Identifiable, Codable, Equatable {
         lhs.name == rhs.name &&
         lhs.ip == rhs.ip &&
         lhs.connectionType == rhs.connectionType &&
-        lhs.tslIndices == rhs.tslIndices
+        lhs.tslIndices == rhs.tslIndices &&
+        lhs.positionsNumber == rhs.positionsNumber
     }
 }
 

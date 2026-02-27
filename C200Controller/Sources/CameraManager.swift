@@ -37,6 +37,13 @@ class CameraManager: ObservableObject {
     @Published var tslClientConnected = false // a switcher is actively connected
     private var tslClient: TSLClient?
 
+    // Camera Positions integration
+    @Published var positionsEnabled = false
+    @Published var positionsHost = ""
+    @Published var positionsPort: Int = 8765
+    @Published var positionsAssignments: [Int: CameraAssignment] = [:]
+    private var positionsClient: CameraPositionsClient?
+
     private var browser: NWBrowser?
     private let persistenceKey = "known_cameras_v2"
     private let autoReconnectKey = "auto_reconnect_enabled"
@@ -66,6 +73,18 @@ class CameraManager: ObservableObject {
         if tslEnabled {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.startTSL()
+            }
+        }
+
+        // Restore Camera Positions settings
+        positionsEnabled = UserDefaults.standard.bool(forKey: "positions_enabled")
+        positionsHost = UserDefaults.standard.string(forKey: "positions_host") ?? ""
+        let savedPositionsPort = UserDefaults.standard.integer(forKey: "positions_port")
+        if savedPositionsPort > 0 { positionsPort = savedPositionsPort }
+
+        if positionsEnabled && !positionsHost.isEmpty {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.startPositions()
             }
         }
     }
@@ -400,5 +419,30 @@ class CameraManager: ObservableObject {
                 }
             }
         }
+    }
+
+    // MARK: - Camera Positions Integration
+
+    func startPositions() {
+        guard positionsClient == nil else { return }
+        guard !positionsHost.isEmpty else { return }
+
+        positionsClient = CameraPositionsClient()
+        positionsClient?.onAssignmentsUpdate = { [weak self] assignments in
+            self?.positionsAssignments = assignments
+        }
+        positionsClient?.start(host: positionsHost, port: positionsPort)
+        positionsEnabled = true
+        UserDefaults.standard.set(true, forKey: "positions_enabled")
+        UserDefaults.standard.set(positionsHost, forKey: "positions_host")
+        UserDefaults.standard.set(positionsPort, forKey: "positions_port")
+    }
+
+    func stopPositions() {
+        positionsClient?.stop()
+        positionsClient = nil
+        positionsEnabled = false
+        positionsAssignments = [:]
+        UserDefaults.standard.set(false, forKey: "positions_enabled")
     }
 }

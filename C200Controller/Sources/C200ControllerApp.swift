@@ -8,6 +8,7 @@ struct C200ControllerApp: App {
     @StateObject private var presetManager = PresetManager()
     @State private var showingTallySettings = false
     @State private var showingFirmwareUpdate = false
+    @State private var showingPositionsSettings = false
 
     init() {
         updaterController = SPUStandardUpdaterController(
@@ -33,6 +34,10 @@ struct C200ControllerApp: App {
                     FirmwareUpdateView()
                         .environmentObject(cameraManager)
                 }
+                .sheet(isPresented: $showingPositionsSettings) {
+                    CameraPositionsSettingsView()
+                        .environmentObject(cameraManager)
+                }
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1150, height: 700)
@@ -50,6 +55,11 @@ struct C200ControllerApp: App {
                     showingFirmwareUpdate = true
                 }
                 .keyboardShortcut("U", modifiers: [.command, .shift])
+
+                Button("Camera Positions...") {
+                    showingPositionsSettings = true
+                }
+                .keyboardShortcut("P", modifiers: [.command, .shift])
             }
         }
     }

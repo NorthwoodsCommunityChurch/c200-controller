@@ -57,6 +57,7 @@ struct HeaderView: View {
     @EnvironmentObject var cameraManager: CameraManager
     @State private var showingFirmwareUpdate = false
     @State private var showingTallySettings = false
+    @State private var showingPositionsSettings = false
 
     private var connectedCount: Int {
         cameraManager.cameraStates.values.filter { $0.isConnected }.count
@@ -138,6 +139,26 @@ struct HeaderView: View {
                     .help("TSL Settings (⌘⇧T)")
                 }
 
+                // Camera Positions status + settings
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(cameraManager.positionsEnabled ? Color.success : Color(white: 0.35))
+                        .frame(width: 8, height: 8)
+                        .help(cameraManager.positionsEnabled ? "Camera Positions: Polling" : "Camera Positions: Off")
+                    Text("POS")
+                        .font(.system(size: 12))
+                        .foregroundColor(.textSecondary)
+                    Button {
+                        showingPositionsSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 13))
+                            .foregroundColor(.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Camera Positions Settings (⌘⇧P)")
+                }
+
                 Button {
                     showingFirmwareUpdate = true
                 } label: {
@@ -158,6 +179,10 @@ struct HeaderView: View {
         }
         .sheet(isPresented: $showingFirmwareUpdate) {
             FirmwareUpdateView()
+                .environmentObject(cameraManager)
+        }
+        .sheet(isPresented: $showingPositionsSettings) {
+            CameraPositionsSettingsView()
                 .environmentObject(cameraManager)
         }
     }
@@ -354,6 +379,22 @@ struct TileFront: View {
     @State private var editedName = ""
     @FocusState private var nameFieldFocused: Bool
 
+    // MARK: - Positions helpers
+
+    private var currentCamera: Camera {
+        cameraManager.cameras.first { $0.id == camera.id } ?? camera
+    }
+
+    private var positionsAssignment: CameraAssignment? {
+        guard cameraManager.positionsEnabled else { return nil }
+        guard let number = currentCamera.positionsNumber else { return nil }
+        return cameraManager.positionsAssignments[number]
+    }
+
+    private var circlesHeight: Double {
+        positionsAssignment != nil ? 208 : 230
+    }
+
     var body: some View {
         VStack(spacing: 8) {
             // Camera header
@@ -428,6 +469,34 @@ struct TileFront: View {
             }
             .padding(.horizontal, 4)
 
+            // Camera Positions strip (shown when enabled, assigned, and operator is non-nil)
+            if let assignment = positionsAssignment,
+               let number = currentCamera.positionsNumber,
+               let operatorName = assignment.operatorName {
+                HStack {
+                    Text("CAM \(number)")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(.textSecondary)
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Text(operatorName)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.textPrimary)
+                            .lineLimit(1)
+                        if let firstLens = assignment.lenses.first, !firstLens.isEmpty {
+                            Text("·")
+                                .font(.system(size: 10))
+                                .foregroundColor(.textSecondary)
+                            Text(firstLens)
+                                .font(.system(size: 10))
+                                .foregroundColor(.textSecondary)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+
             // Fixed-height circles area (same for connected and disconnected)
             VStack(spacing: 8) {
                 if state.isConnected {
@@ -497,7 +566,7 @@ struct TileFront: View {
                     }
                 }
             }
-            .frame(height: 230)
+            .frame(height: circlesHeight)
 
             Divider().background(Color.backgroundCard)
 
@@ -669,7 +738,11 @@ struct TileBack: View {
             TileTallySection(camera: camera, state: state)
                 .environmentObject(cameraManager)
 
-            Spacer(minLength: 4)
+            Divider().background(Color.backgroundCard)
+
+            // Camera Positions section
+            TileCameraPositionSection(camera: camera)
+                .environmentObject(cameraManager)
 
             // Remove camera button
             Button {
@@ -799,6 +872,63 @@ struct TileTallySection: View {
                         .buttonStyle(.plain).help("Clear tally")
                     }
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Tile Camera Position Section
+
+struct TileCameraPositionSection: View {
+    let camera: Camera
+    @EnvironmentObject var cameraManager: CameraManager
+
+    private var currentCamera: Camera {
+        cameraManager.cameras.first { $0.id == camera.id } ?? camera
+    }
+
+    private var currentAssignment: CameraAssignment? {
+        guard let number = currentCamera.positionsNumber else { return nil }
+        return cameraManager.positionsAssignments[number]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("POSITIONS")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.textSecondary)
+                .tracking(1)
+
+            HStack(spacing: 6) {
+                Text("Camera #:")
+                    .font(.system(size: 10))
+                    .foregroundColor(.textSecondary)
+
+                Picker("", selection: Binding(
+                    get: { currentCamera.positionsNumber },
+                    set: { newValue in
+                        if let idx = cameraManager.cameras.firstIndex(where: { $0.id == camera.id }) {
+                            cameraManager.cameras[idx].positionsNumber = newValue
+                            cameraManager.saveCameras()
+                        }
+                    }
+                )) {
+                    Text("—").tag(Optional<Int>.none)
+                    ForEach(1...8, id: \.self) { n in
+                        Text("\(n)").tag(Optional<Int>.some(n))
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(width: 60)
+
+                if let name = currentAssignment?.operatorName {
+                    Text(name)
+                        .font(.system(size: 10))
+                        .foregroundColor(.textSecondary)
+                        .lineLimit(1)
+                }
+                Spacer()
             }
         }
     }
