@@ -6,7 +6,7 @@ macOS app (SwiftUI) that controls Canon C200 cameras wirelessly via an ESP32-S3 
 
 ## Repo
 
-`NorthwoodsCommunityChurch/avl-c200-controller` (private)
+`NorthwoodsCommunityChurch/c200-controller` (private)
 
 ## Architecture
 
