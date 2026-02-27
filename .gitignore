@@ -24,7 +24,12 @@ build/
 # Swift Package Manager
 .build/
 .swiftpm/
-*.resolved
+# Note: Package.resolved is committed to pin dependency versions
+
+# Claude Code team scripts (local dev only)
+.claude/
+Open\ Claude.command
+start-claude-team.sh
 
 # ESP32Flasher — separate project/repo, not part of this repo
 ESP32Flasher/
