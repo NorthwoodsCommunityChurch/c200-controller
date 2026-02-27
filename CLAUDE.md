@@ -6,7 +6,7 @@ macOS app (SwiftUI) that controls Canon C200 cameras wirelessly via an ESP32-S3 
 
 ## Repo
 
-`NorthwoodsCommunityChurch/c200-controller` (private)
+`NorthwoodsCommunityChurch/c200-controller` (public)
 
 ## Architecture
 
@@ -277,9 +277,22 @@ idf.py -p /dev/cu.usbmodem2101 monitor
 
 **To set camera number:** Edit `#define CAMERA_NUMBER N` in `main.c` before flashing.
 
+## Release Rule — Every Change Must Ship
+
+**Any change to the app OR firmware must go through a full release so the client can receive it via Sparkle OTA.**
+
+This means every fix, no matter how small, requires:
+1. Bump the version (ask first — usually patch: 1.0.x)
+2. Rebuild the app (`bash build.sh`) — bundles the latest firmware automatically
+3. Create a signed zip and GitHub release
+4. Update the appcast (`app-updates/appcast-c200controller.xml`) and push it
+
+**Why:** The client machine runs the installed app. If we fix something locally and don't release it, the client is still on the old version and can't get the fix. Sparkle is the only delivery path.
+
+**Firmware changes specifically:** Firmware is bundled inside the app at build time. A firmware fix requires an app release too — bump both the firmware version (`#define FIRMWARE_VERSION` in `main.c`) and the app version. The client then pushes firmware to boards via ⌘⇧U.
+
 ## Pending Work
 
-- [ ] Sparkle auto-updates (required before stable release)
 - [ ] Bitfocus Companion module (skeleton in `companion-module/`)
 - [ ] Production multi-camera testing
 - [ ] Intel Mac testing
@@ -307,6 +320,7 @@ Before any public/shared release: move credentials to Keychain (camera) and NVS/
 
 ## Version
 
-Current: `v1.0.3` (build 3)
-CFBundleVersion: 3
-MARKETING_VERSION: 1.0.3
+Current: `v1.0.6` (build 5)
+CFBundleVersion: 5
+MARKETING_VERSION: 1.0.6
+
