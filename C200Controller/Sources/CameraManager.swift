@@ -473,7 +473,9 @@ class CameraManager: ObservableObject {
         let assignment = lookup[number]
 
         let ip = camera.ip
-        let operatorName = assignment?.operatorName ?? ""
+        // Use first name only — display is narrow, full names won't fit well
+        let fullName = assignment?.operatorName ?? ""
+        let operatorName = fullName.components(separatedBy: " ").first ?? fullName
         let lens = assignment?.lenses.first ?? ""
 
         Task {

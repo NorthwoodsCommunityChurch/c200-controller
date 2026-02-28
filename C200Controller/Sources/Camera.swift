@@ -110,6 +110,9 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     // Called by CameraManager when this camera successfully connects
     var onConnected: (() -> Void)?
 
+    // Rate-limit the oled_number=0 triggered push (5-second cooldown)
+    private var lastPositionsPushAttempt: Date = .distantPast
+
     // Networking
     private var pollTimer: Timer?
     private var isDirectPolling = false
@@ -321,6 +324,14 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         let wasReachable = esp32Reachable
         esp32Reachable = true
         if !wasReachable { onConnected?() }
+
+        // If the board reports oled_number == 0 (just rebooted or display not yet set),
+        // push positions again. Rate-limited to once every 5 seconds so we don't spam.
+        if let oledNum = json["oled_number"] as? Int, oledNum == 0,
+           Date().timeIntervalSince(lastPositionsPushAttempt) > 5 {
+            lastPositionsPushAttempt = Date()
+            onConnected?()
+        }
 
         // Status
         isConnected = json["camera_connected"] as? Bool ?? false
