@@ -138,8 +138,12 @@ class FirmwareUpdateManager: ObservableObject {
             boardStatuses[camera.id] = .starting
         }
 
-        guard let macIP = getWiFiIP() else {
-            appLog("FirmwareUpdate: Cannot determine Mac WiFi IP")
+        let cameraIPs = esp32Cameras.map { $0.ip }
+        guard let macIP = getLocalIP(preferringSameSubnetAs: cameraIPs) else {
+            appLog("FirmwareUpdate: Cannot determine Mac local IP")
+            for camera in esp32Cameras {
+                boardStatuses[camera.id] = .error("No local IP found")
+            }
             isUpdating = false
             return
         }
@@ -310,15 +314,18 @@ class FirmwareUpdateManager: ObservableObject {
 
     // MARK: - Network utilities
 
-    private func getWiFiIP() -> String? {
+    /// Find the Mac's local IP on any `en*` interface, preferring one in the same
+    /// /24 subnet as the cameras so the ESP32s can actually reach the firmware server.
+    private func getLocalIP(preferringSameSubnetAs cameraIPs: [String]) -> String? {
         var addrs: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&addrs) == 0 else { return nil }
         defer { freeifaddrs(addrs) }
 
+        var candidates: [String] = []
         var ptr = addrs
         while let addr = ptr {
             let name = String(cString: addr.pointee.ifa_name)
-            if (name == "en0" || name == "en1"),
+            if name.hasPrefix("en"),
                addr.pointee.ifa_addr.pointee.sa_family == UInt8(AF_INET) {
                 var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
                 getnameinfo(addr.pointee.ifa_addr,
@@ -326,9 +333,26 @@ class FirmwareUpdateManager: ObservableObject {
                             &host, socklen_t(host.count),
                             nil, 0, NI_NUMERICHOST)
                 let ip = String(cString: host)
-                if ip != "127.0.0.1" { return ip }
+                if ip != "127.0.0.1" && !ip.isEmpty {
+                    candidates.append(ip)
+                }
             }
             ptr = addr.pointee.ifa_next
+        }
+
+        // Prefer an IP in the same /24 as any camera
+        for cameraIP in cameraIPs {
+            let camPrefix = cameraIP.components(separatedBy: ".").prefix(3).joined(separator: ".")
+            if let match = candidates.first(where: { $0.hasPrefix(camPrefix + ".") }) {
+                appLog("FirmwareUpdate: Using local IP \(match) (same subnet as camera)")
+                return match
+            }
+        }
+
+        // Fall back to first candidate
+        if let first = candidates.first {
+            appLog("FirmwareUpdate: Using local IP \(first) (fallback)")
+            return first
         }
         return nil
     }

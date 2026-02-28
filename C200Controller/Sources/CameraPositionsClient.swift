@@ -35,15 +35,28 @@ class CameraPositionsClient: @unchecked Sendable {
     }
 
     private func poll(host: String, port: Int) async {
-        guard let url = URL(string: "http://\(host):\(port)/api/assignments") else { return }
+        // Accept a full URL in host (e.g. "http://localhost:8080") or a bare hostname.
+        let urlString: String
+        if host.hasPrefix("http://") || host.hasPrefix("https://") {
+            let base = host.hasSuffix("/") ? String(host.dropLast()) : host
+            urlString = "\(base)/api/config"
+        } else {
+            urlString = "http://\(host):\(port)/api/config"
+        }
+        guard let url = URL(string: urlString) else { return }
         guard let (data, _) = try? await session.data(from: url) else { return }
-        guard let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
+
+        // /api/config returns {"serviceName":..., "cameras":[{"number":N, "operatorName":"...", "lenses":[{"name":"..."}]}]}
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let array = root["cameras"] as? [[String: Any]] else { return }
 
         var result: [Int: CameraAssignment] = [:]
         for item in array {
             guard let num = item["number"] as? Int else { continue }
-            let op = item["operator"] as? String  // nullable — nil when no operator
-            let lenses = item["lenses"] as? [String] ?? []
+            let op = item["operatorName"] as? String  // nil when no operator assigned
+            // Lenses are objects {"name": "70 - 200", "photoFilename": "..."}
+            let lensObjects = item["lenses"] as? [[String: Any]] ?? []
+            let lenses = lensObjects.compactMap { $0["name"] as? String }
             result[num] = CameraAssignment(cameraNumber: num, operatorName: op, lenses: lenses)
         }
 
