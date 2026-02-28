@@ -116,8 +116,9 @@ class CameraManager: ObservableObject {
     private func makeState(for camera: Camera) -> CameraState {
         let state = CameraState(camera: camera)
         state.autoReconnectEnabled = autoReconnect
-        state.onConnected = { [weak self] in
-            self?.pushPositionsToESP32(camera: camera)
+        state.onConnected = { [weak self, cameraID = camera.id] in
+            guard let self, let current = self.cameras.first(where: { $0.id == cameraID }) else { return }
+            self.pushPositionsToESP32(camera: current)
         }
         return state
     }
@@ -486,7 +487,7 @@ class CameraManager: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.timeoutInterval = 3
 
-            let body: [String: String] = ["operator": operatorName, "lens": lens]
+            let body: [String: Any] = ["operator": operatorName, "lens": lens, "camera": number]
             guard let data = try? JSONSerialization.data(withJSONObject: body) else { return }
             request.httpBody = data
 

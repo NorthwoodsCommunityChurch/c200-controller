@@ -910,6 +910,7 @@ struct TileCameraPositionSection: View {
                         if let idx = cameraManager.cameras.firstIndex(where: { $0.id == camera.id }) {
                             cameraManager.cameras[idx].positionsNumber = newValue
                             cameraManager.saveCameras()
+                            cameraManager.pushPositionsToESP32(camera: cameraManager.cameras[idx])
                         }
                     }
                 )) {
