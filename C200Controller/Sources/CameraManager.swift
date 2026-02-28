@@ -470,11 +470,11 @@ class CameraManager: ObservableObject {
         guard let number = camera.positionsNumber else { return }
 
         let lookup = assignments ?? positionsAssignments
-        guard let assignment = lookup[number] else { return }
+        let assignment = lookup[number]
 
         let ip = camera.ip
-        let operatorName = assignment.operatorName ?? ""
-        let lens = assignment.lenses.first ?? ""
+        let operatorName = assignment?.operatorName ?? ""
+        let lens = assignment?.lenses.first ?? ""
 
         Task {
             let config = URLSessionConfiguration.default
