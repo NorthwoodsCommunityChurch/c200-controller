@@ -318,7 +318,9 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         let isoVal = (json["gcv"] as? [String: Any])?["value"] as? String ?? "?"
         appLog("WS \(camera.name): iso=\(isoVal)")
 
+        let wasReachable = esp32Reachable
         esp32Reachable = true
+        if !wasReachable { onConnected?() }
 
         // Status
         isConnected = json["camera_connected"] as? Bool ?? false
