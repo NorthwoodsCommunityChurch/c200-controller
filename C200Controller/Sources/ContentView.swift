@@ -611,23 +611,9 @@ struct TileFront: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(state.isRecording ? Color.error : Color.primary.opacity(0.1), lineWidth: state.isRecording ? 2 : 1)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(tallyBorderColor, lineWidth: 4)
-        )
         .animation(.easeInOut(duration: 0.2), value: state.isRecording)
-        .animation(.easeInOut(duration: 0.15), value: state.tallyProgram)
-        .animation(.easeInOut(duration: 0.15), value: state.tallyPreview)
-    }
-
-    // Tally border color
-    private var tallyBorderColor: Color {
-        if state.tallyProgram {
-            return Color(red: 1.0, green: 0, blue: 0)  // Red
-        } else if state.tallyPreview {
-            return Color(red: 0, green: 1.0, blue: 0)  // Green
-        }
-        return .clear
+        .animation(.easeInOut(duration: 0.12), value: state.tallyProgram)
+        .animation(.easeInOut(duration: 0.12), value: state.tallyPreview)
     }
 
     // Progress calculations
@@ -782,7 +768,7 @@ struct TileBack: View {
     }
 }
 
-// MARK: - Front Tally Indicator (compact, for tile front)
+// MARK: - Front Tally Indicator (prominent status light on tile face)
 
 struct FrontTallyLight: View {
     let isOn: Bool
@@ -790,31 +776,39 @@ struct FrontTallyLight: View {
     let label: String
 
     var body: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 7) {
             ZStack {
+                // Outer glow
                 if isOn {
                     Circle()
-                        .fill(onColor.opacity(0.35))
-                        .frame(width: 16, height: 16)
-                        .blur(radius: 4)
+                        .fill(onColor.opacity(0.4))
+                        .frame(width: 26, height: 26)
+                        .blur(radius: 7)
                 }
+                // LED dome
                 Circle()
-                    .fill(isOn ? onColor : Color(white: 0.18))
-                    .frame(width: 9, height: 9)
+                    .fill(isOn ? onColor : Color(white: 0.15))
+                    .frame(width: 14, height: 14)
                     .overlay(
                         Circle().fill(
                             RadialGradient(
-                                colors: [.white.opacity(isOn ? 0.5 : 0.06), .clear],
+                                colors: [.white.opacity(isOn ? 0.55 : 0.07), .clear],
                                 center: .init(x: 0.35, y: 0.3),
-                                startRadius: 0, endRadius: 5
+                                startRadius: 0, endRadius: 8
                             )
                         )
                     )
             }
+            .frame(width: 26, height: 26)
+
             Text(label)
-                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
                 .foregroundColor(isOn ? onColor : Color(white: 0.3))
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(isOn ? onColor.opacity(0.12) : Color(white: 0.1))
+        .cornerRadius(8)
     }
 }
 
