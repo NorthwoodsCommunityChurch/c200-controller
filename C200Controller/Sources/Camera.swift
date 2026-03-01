@@ -928,34 +928,33 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     // MARK: - Tally Control
 
     func updateTallyState(program: Bool, preview: Bool) async {
-        guard camera.connectionType == .esp32 else {
-            // Direct connection cameras: update border only, no LED control
-            await MainActor.run {
-                self.tallyProgram = program
-                self.tallyPreview = preview
-            }
-            return
+        // Always update local state immediately so the UI reflects the switcher's
+        // intent regardless of ESP32 connectivity. The WebSocket echo will confirm
+        // the actual LED state; if it disagrees, it corrects us.
+        await MainActor.run {
+            self.tallyProgram = program
+            self.tallyPreview = preview
         }
 
-        // Determine command — program always wins over preview
-        let command: String
-        if program {
-            command = "program"
-        } else if preview {
-            command = "preview"
-        } else {
-            command = "off"
-        }
+        guard camera.connectionType == .esp32 else { return }
 
-        // Send to ESP32
+        let command = program ? "program" : (preview ? "preview" : "off")
+
         do {
+            // Send brightness BEFORE the tally command when activating. This prevents
+            // the ESP32 from briefly flashing at full brightness (255) after a reboot
+            // before the dashboard has had a chance to restore the saved level.
+            if program || preview {
+                let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
+                let pct = savedPct == 0 ? 1 : savedPct
+                let esp32Value = Int(Double(pct) / 100.0 * 255.0)
+                await sendBrightness(esp32Value)
+            }
+
             var request = URLRequest(url: URL(string: "http://\(camera.ip)/api/tally/\(command)")!)
             request.httpMethod = "POST"
             request.timeoutInterval = 2.0
             _ = try await session.data(for: request)
-
-            // Note: Don't update local state here - let WebSocket feedback confirm LED state
-            // This creates proper synchronization: POST → ESP32 → WebSocket → Dashboard
         } catch {
             appLog("Tally command error for \(camera.name): \(error)")
         }
