@@ -384,15 +384,7 @@ struct TileFront: View {
         cameraManager.cameras.first { $0.id == camera.id } ?? camera
     }
 
-    private var positionsAssignment: CameraAssignment? {
-        guard cameraManager.positionsEnabled else { return nil }
-        guard let number = currentCamera.positionsNumber else { return nil }
-        return cameraManager.positionsAssignments[number]
-    }
-
-    private var circlesHeight: Double {
-        positionsAssignment != nil ? 208 : 230
-    }
+    private var circlesHeight: Double { 230 }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -467,34 +459,6 @@ struct TileFront: View {
                 }
             }
             .padding(.horizontal, 4)
-
-            // Camera Positions strip (shown when enabled, assigned, and operator is non-nil)
-            if let assignment = positionsAssignment,
-               let number = currentCamera.positionsNumber,
-               let operatorName = assignment.operatorName {
-                HStack {
-                    Text("CAM \(number)")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundColor(.textSecondary)
-                    Spacer()
-                    HStack(spacing: 4) {
-                        Text(operatorName)
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(.textPrimary)
-                            .lineLimit(1)
-                        if let firstLens = assignment.lenses.first, !firstLens.isEmpty {
-                            Text("·")
-                                .font(.system(size: 10))
-                                .foregroundColor(.textSecondary)
-                            Text(firstLens)
-                                .font(.system(size: 10))
-                                .foregroundColor(.textSecondary)
-                                .lineLimit(1)
-                        }
-                    }
-                }
-                .padding(.horizontal, 4)
-            }
 
             // Fixed-height circles area (same for connected and disconnected)
             VStack(spacing: 8) {
@@ -716,14 +680,18 @@ struct TileBack: View {
 
             Divider().background(Color.backgroundCard)
 
-            // Camera Info - compact
-            VStack(alignment: .leading, spacing: 6) {
-                InfoRow(label: "IP", value: camera.ip)
-                InfoRow(label: "Type", value: camera.connectionType == .esp32 ? "ESP32" : "Direct")
+            // OLED screen preview
+            OLEDPreview(camera: camera, state: state)
+                .environmentObject(cameraManager)
 
+            Divider().background(Color.backgroundCard)
+
+            // Camera Info - compact
+            VStack(alignment: .leading, spacing: 4) {
+                InfoRow(label: "IP", value: camera.ip)
                 if camera.connectionType == .esp32 {
-                    InfoRow(label: "WiFi", value: state.wifiConnected ? "Connected" : "Disconnected")
-                    InfoRow(label: "Eth", value: state.ethConnected ? "Connected" : "Disconnected")
+                    InfoRow(label: "WiFi", value: state.wifiConnected ? "OK" : "—")
+                    InfoRow(label: "Eth", value: state.ethConnected ? "OK" : "—")
                 }
             }
 
@@ -764,6 +732,95 @@ struct TileBack: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(Color.primary.opacity(0.1), lineWidth: 1)
         )
+    }
+}
+
+// MARK: - OLED Screen Preview
+
+struct OLEDPreview: View {
+    let camera: Camera
+    @ObservedObject var state: CameraState
+    @EnvironmentObject var cameraManager: CameraManager
+
+    private var currentCamera: Camera {
+        cameraManager.cameras.first { $0.id == camera.id } ?? camera
+    }
+
+    private var assignment: CameraAssignment? {
+        guard let n = currentCamera.positionsNumber else { return nil }
+        return cameraManager.positionsAssignments[n]
+    }
+
+    private var tallyText: String {
+        if state.tallyProgram { return "PRG" }
+        if state.tallyPreview { return "PVW" }
+        return "---"
+    }
+
+    // Row 0: status bar
+    private var row0: String {
+        if let n = currentCamera.positionsNumber {
+            return "CAM \(n)  Tally:\(tallyText)"
+        } else {
+            let wifi = state.wifiConnected ? "OK" : "--"
+            let eth = state.ethConnected ? "OK" : "--"
+            return "WiFi:\(wifi)  Eth:\(eth)"
+        }
+    }
+
+    // Row 1: operator first name
+    private var row1: String {
+        let fullName = assignment?.operatorName ?? ""
+        return fullName.components(separatedBy: " ").first ?? fullName
+    }
+
+    // Row 2: first lens
+    private var row2: String {
+        return assignment?.lenses.first ?? ""
+    }
+
+    // Row 3: camera + record state
+    private var row3: String {
+        let cam = state.isConnected ? "OK" : "--"
+        let rec = state.isRecording ? "LIVE" : "----"
+        return "Cam:\(cam)  Rec:\(rec)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("OLED")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundColor(.textSecondary)
+                .tracking(1.5)
+
+            VStack(alignment: .leading, spacing: 1) {
+                oledRow(row0)
+                oledRow(row1)
+                oledRow(row2)
+                oledRow(row3)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(Color.black)
+            .cornerRadius(5)
+            .overlay(
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(Color(white: 0.28), lineWidth: 1)
+            )
+        }
+        .animation(.easeInOut(duration: 0.12), value: state.tallyProgram)
+        .animation(.easeInOut(duration: 0.12), value: state.tallyPreview)
+        .animation(.easeInOut(duration: 0.12), value: state.isRecording)
+    }
+
+    @ViewBuilder
+    private func oledRow(_ text: String) -> some View {
+        Text(text.isEmpty ? " " : text)
+            .font(.system(size: 10, weight: .medium, design: .monospaced))
+            .foregroundColor(Color(red: 0.0, green: 0.9, blue: 0.18))
+            .lineLimit(1)
+            .frame(height: 14)
     }
 }
 
