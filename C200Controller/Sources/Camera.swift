@@ -927,7 +927,9 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
 
     // MARK: - Tally Control
 
-    func updateTallyState(program: Bool, preview: Bool) async {
+    /// - withBrightness: Send brightness before the tally command (only needed on the
+    ///   initial activation, not on periodic re-sends where brightness is already set).
+    func updateTallyState(program: Bool, preview: Bool, withBrightness: Bool = true) async {
         guard camera.connectionType == .esp32 else {
             // Direct connection: no ESP32/WebSocket, so update UI directly
             await MainActor.run {
@@ -939,25 +941,31 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
 
         let command = program ? "program" : (preview ? "preview" : "off")
 
-        do {
-            // Send brightness BEFORE the tally command when activating. This prevents
-            // the ESP32 from briefly flashing at full brightness (255) after a reboot
-            // before the dashboard has had a chance to restore the saved level.
-            if program || preview {
-                let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
-                let pct = savedPct == 0 ? 1 : savedPct
-                let esp32Value = Int(Double(pct) / 100.0 * 255.0)
-                await sendBrightness(esp32Value)
-            }
+        // Send brightness first on initial activation to prevent the ESP32 from
+        // briefly flashing at full brightness (255) after a reboot.
+        if withBrightness && (program || preview) {
+            let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
+            let pct = savedPct == 0 ? 1 : savedPct
+            let esp32Value = Int(Double(pct) / 100.0 * 255.0)
+            await sendBrightness(esp32Value)
+        }
 
-            var request = URLRequest(url: URL(string: "http://\(camera.ip)/api/tally/\(command)")!)
-            request.httpMethod = "POST"
-            request.timeoutInterval = 2.0
-            _ = try await session.data(for: request)
-            // Tally state is updated via WebSocket echo — single source of truth,
-            // no double-update flash.
-        } catch {
-            appLog("Tally command error for \(camera.name): \(error)")
+        // Retry up to 3 times — WiFi congestion can silently drop packets
+        for attempt in 1...3 {
+            do {
+                var request = URLRequest(url: URL(string: "http://\(camera.ip)/api/tally/\(command)")!)
+                request.httpMethod = "POST"
+                request.timeoutInterval = 1.0
+                _ = try await session.data(for: request)
+                // Tally state updated via WebSocket echo — single source of truth
+                return
+            } catch {
+                if attempt < 3 {
+                    try? await Task.sleep(nanoseconds: 200_000_000) // 200ms between retries
+                } else {
+                    appLog("Tally \(command) failed after 3 attempts for \(camera.name): \(error)")
+                }
+            }
         }
     }
 

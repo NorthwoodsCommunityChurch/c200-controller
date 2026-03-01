@@ -37,6 +37,10 @@ class CameraManager: ObservableObject {
     @Published var tslClientConnected = false // a switcher is actively connected
     private var tslClient: TSLClient?
 
+    // Tracks the TSL-intended state per index so we can periodically re-send
+    private var tslState: [Int: (program: Bool, preview: Bool)] = [:]
+    private var tallyRefreshTimer: Timer?
+
     // Camera Positions integration
     @Published var positionsEnabled = false
     @Published var positionsHost = ""
@@ -412,10 +416,16 @@ class CameraManager: ObservableObject {
         tslEnabled = false
         tslListening = false
         tslClientConnected = false
+        tslState.removeAll()
+        stopTallyRefreshTimer()
         UserDefaults.standard.set(false, forKey: "tsl_enabled")
     }
 
     private func clearAllTally() {
+        // Clear all stored TSL state and stop the refresh timer
+        tslState.removeAll()
+        stopTallyRefreshTimer()
+
         for camera in cameras {
             if let state = cameraStates[camera.id] {
                 Task { await state.updateTallyState(program: false, preview: false) }
@@ -431,12 +441,49 @@ class CameraManager: ObservableObject {
 
         appLog("TSL update: index=\(index), program=\(isProgram), preview=\(isPreview) → \(matchingCameras.count) camera(s)")
 
-        // Update all matching cameras
+        // Store intended state for this index so the refresh timer can re-send it
+        tslState[index] = (program: isProgram, preview: isPreview)
+
+        // Send immediately
         for camera in matchingCameras {
             if let state = cameraStates[camera.id] {
-                Task {
-                    await state.updateTallyState(program: isProgram, preview: isPreview)
-                }
+                Task { await state.updateTallyState(program: isProgram, preview: isPreview) }
+            }
+        }
+
+        // Keep refresh timer running while any tally is active
+        let anyActive = tslState.values.contains { $0.program || $0.preview }
+        if anyActive {
+            startTallyRefreshTimer()
+        } else {
+            stopTallyRefreshTimer()
+        }
+    }
+
+    // MARK: - Tally Refresh Timer
+
+    private func startTallyRefreshTimer() {
+        guard tallyRefreshTimer == nil else { return }
+        tallyRefreshTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.resendActiveTally() }
+        }
+    }
+
+    private func stopTallyRefreshTimer() {
+        tallyRefreshTimer?.invalidate()
+        tallyRefreshTimer = nil
+    }
+
+    /// Re-sends the current TSL-intended tally state to all cameras.
+    /// Called every 2.5s to recover from dropped WiFi packets.
+    private func resendActiveTally() {
+        for camera in cameras {
+            let program = camera.tslIndices.contains { tslState[$0]?.program == true }
+            let preview = camera.tslIndices.contains { tslState[$0]?.preview == true }
+            guard program || preview else { continue }
+
+            if let state = cameraStates[camera.id] {
+                Task { await state.updateTallyState(program: program, preview: preview, withBrightness: false) }
             }
         }
     }
