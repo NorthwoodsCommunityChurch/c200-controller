@@ -354,7 +354,6 @@ struct CameraTile: View {
                 .rotation3DEffect(.degrees(isFlipped ? -180 : 0), axis: (x: 0, y: 1, z: 0))
                 .opacity(isFlipped ? 0 : 1)
         }
-        .frame(height: 340)
         .animation(.easeInOut(duration: 0.4), value: isFlipped)
         .alert("Remove Camera?", isPresented: $showDeleteConfirm) {
             Button("Cancel", role: .cancel) { }
