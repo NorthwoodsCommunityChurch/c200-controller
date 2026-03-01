@@ -346,7 +346,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
 
         // Status
         isConnected = json["camera_connected"] as? Bool ?? false
-        isRecording = json["recording"] as? Bool ?? false
+        isRecording = (json["recording"] as? Bool ?? false) && isConnected
         wifiConnected = json["wifi_connected"] as? Bool ?? false
         ethConnected = json["eth_connected"] as? Bool ?? false
 

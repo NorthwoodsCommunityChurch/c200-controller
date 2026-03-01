@@ -570,6 +570,16 @@ struct TileFront: View {
 
             Divider().background(Color.backgroundCard)
 
+            // Tally status indicator — always visible so operator can confirm tally in real time
+            HStack(spacing: 12) {
+                Spacer()
+                FrontTallyLight(isOn: state.tallyProgram, onColor: .red, label: "PGM")
+                FrontTallyLight(isOn: state.tallyPreview, onColor: .green, label: "PVW")
+                Spacer()
+            }
+            .animation(.easeInOut(duration: 0.12), value: state.tallyProgram)
+            .animation(.easeInOut(duration: 0.12), value: state.tallyPreview)
+
             // Action button (REC or Connect)
             Button {
                 if state.isConnected {
@@ -772,6 +782,84 @@ struct TileBack: View {
     }
 }
 
+// MARK: - Front Tally Indicator (compact, for tile front)
+
+struct FrontTallyLight: View {
+    let isOn: Bool
+    let onColor: Color
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ZStack {
+                if isOn {
+                    Circle()
+                        .fill(onColor.opacity(0.35))
+                        .frame(width: 16, height: 16)
+                        .blur(radius: 4)
+                }
+                Circle()
+                    .fill(isOn ? onColor : Color(white: 0.18))
+                    .frame(width: 9, height: 9)
+                    .overlay(
+                        Circle().fill(
+                            RadialGradient(
+                                colors: [.white.opacity(isOn ? 0.5 : 0.06), .clear],
+                                center: .init(x: 0.35, y: 0.3),
+                                startRadius: 0, endRadius: 5
+                            )
+                        )
+                    )
+            }
+            Text(label)
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .foregroundColor(isOn ? onColor : Color(white: 0.3))
+        }
+    }
+}
+
+// MARK: - Tally LED (physical LED simulation)
+
+struct TallyLED: View {
+    let isOn: Bool
+    let onColor: Color
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                // Glow halo when lit
+                if isOn {
+                    Circle()
+                        .fill(onColor.opacity(0.25))
+                        .frame(width: 32, height: 32)
+                        .blur(radius: 6)
+                }
+                // LED dome
+                Circle()
+                    .fill(isOn ? onColor : Color(white: 0.15))
+                    .frame(width: 20, height: 20)
+                    .overlay(
+                        // Specular highlight to simulate dome shape
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [.white.opacity(isOn ? 0.45 : 0.08), .clear],
+                                    center: .init(x: 0.35, y: 0.3),
+                                    startRadius: 0,
+                                    endRadius: 10
+                                )
+                            )
+                    )
+            }
+            Text(label)
+                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                .foregroundColor(isOn ? onColor : Color(white: 0.35))
+        }
+        .animation(.easeInOut(duration: 0.15), value: isOn)
+    }
+}
+
 // MARK: - Tile Tally Section
 
 struct TileTallySection: View {
@@ -793,21 +881,20 @@ struct TileTallySection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            // Header row: label + live tally dots
+            // Header label
+            Text("TALLY")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.textSecondary)
+                .tracking(1)
+
+            // LED visualization — matches physical red/green LEDs on the ESP32 board
             HStack {
-                Text("TALLY")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.textSecondary)
-                    .tracking(1)
                 Spacer()
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(state.tallyProgram ? Color.error : Color(white: 0.25))
-                        .frame(width: 9, height: 9)
-                    Circle()
-                        .fill(state.tallyPreview ? Color.success : Color(white: 0.25))
-                        .frame(width: 9, height: 9)
+                HStack(spacing: 20) {
+                    TallyLED(isOn: state.tallyProgram, onColor: Color.red, label: "PRG")
+                    TallyLED(isOn: state.tallyPreview, onColor: Color.green, label: "PVW")
                 }
+                Spacer()
             }
 
             // TSL input assignment
