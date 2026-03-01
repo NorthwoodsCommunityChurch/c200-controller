@@ -6,9 +6,14 @@ struct FirmwareUpdateView: View {
     @StateObject private var manager = FirmwareUpdateManager()
 
     @State private var showingConfirmation = false
+    @State private var selectedIDs: Set<String> = []
 
     private var esp32Cameras: [Camera] {
         cameraManager.cameras.filter { $0.connectionType == .esp32 }
+    }
+
+    private var selectedCameras: [Camera] {
+        esp32Cameras.filter { selectedIDs.contains($0.id) }
     }
 
     var body: some View {
@@ -90,7 +95,15 @@ struct FirmwareUpdateView: View {
                                     BoardRow(
                                         camera: camera,
                                         status: manager.boardStatuses[camera.id] ?? .idle,
-                                        currentVersion: manager.boardVersions[camera.id] ?? "--"
+                                        currentVersion: manager.boardVersions[camera.id] ?? "--",
+                                        isSelected: selectedIDs.contains(camera.id),
+                                        onToggle: {
+                                            if selectedIDs.contains(camera.id) {
+                                                selectedIDs.remove(camera.id)
+                                            } else {
+                                                selectedIDs.insert(camera.id)
+                                            }
+                                        }
                                     )
                                 }
                             }
@@ -105,7 +118,7 @@ struct FirmwareUpdateView: View {
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundColor(.secondary)
                                 .tracking(1)
-                            Text("All boards will download and flash the new firmware simultaneously over WiFi. Each board will reboot automatically (~15–20 seconds). Cameras will briefly go offline during the update.")
+                            Text("Selected boards will download and flash the new firmware simultaneously over WiFi. Each board will reboot automatically (~15–20 seconds). Cameras will briefly go offline during the update.")
                                 .font(.system(size: 13))
                                 .foregroundColor(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -138,27 +151,28 @@ struct FirmwareUpdateView: View {
                     showingConfirmation = true
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(manager.firmwarePath == nil || esp32Cameras.isEmpty || manager.isUpdating)
+                .disabled(manager.firmwarePath == nil || selectedCameras.isEmpty || manager.isUpdating)
             }
             .padding()
         }
         .frame(width: 500, height: 480)
         .onAppear {
+            selectedIDs = Set(esp32Cameras.map { $0.id })
             Task { await manager.fetchBoardVersions(cameras: esp32Cameras) }
         }
         .confirmationDialog(
-            "Update Firmware on \(esp32Cameras.count) Board\(esp32Cameras.count == 1 ? "" : "s")?",
+            "Update Firmware on \(selectedCameras.count) Board\(selectedCameras.count == 1 ? "" : "s")?",
             isPresented: $showingConfirmation,
             titleVisibility: .visible
         ) {
             Button("Start Update") {
                 Task {
-                    await manager.startUpdate(cameras: esp32Cameras)
+                    await manager.startUpdate(cameras: selectedCameras)
                 }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("All ESP32 boards will download and flash the new firmware. Cameras will be briefly offline during the update.")
+            Text("Selected boards will download and flash the new firmware. Cameras will be briefly offline during the update.")
         }
     }
 
@@ -188,11 +202,16 @@ struct BoardRow: View {
     let camera: Camera
     let status: FirmwareUpdateManager.BoardStatus
     let currentVersion: String
+    var isSelected: Bool = true
+    var onToggle: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 12) {
             statusIcon
                 .frame(width: 20)
+                .onTapGesture {
+                    if case .idle = status { onToggle?() }
+                }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(camera.name)
@@ -228,8 +247,8 @@ struct BoardRow: View {
     private var statusIcon: some View {
         switch status {
         case .idle:
-            Image(systemName: "circle")
-                .foregroundColor(.secondary)
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .foregroundColor(isSelected ? .accentColor : .secondary)
         case .starting, .downloading, .flashing, .rebooting:
             Image(systemName: "arrow.up.circle")
                 .foregroundColor(.blue)
