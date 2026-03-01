@@ -320,7 +320,7 @@ Before any public/shared release: move credentials to Keychain (camera) and NVS/
 
 ## Version
 
-Current: `v1.0.16` (build 15)
-CFBundleVersion: 15
-MARKETING_VERSION: 1.0.16
+Current: `v1.0.18` (build 17)
+CFBundleVersion: 17
+MARKETING_VERSION: 1.0.18
 
