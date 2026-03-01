@@ -323,14 +323,25 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
 
         let wasReachable = esp32Reachable
         esp32Reachable = true
-        if !wasReachable { onConnected?() }
+        if !wasReachable {
+            onConnected?()
+            // ESP32 just came back online — re-send brightness since it resets to full on reboot
+            let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
+            let pct = savedPct == 0 ? 100 : savedPct
+            let esp32Value = Int(Double(pct) / 100.0 * 255.0)
+            Task { await self.sendBrightness(esp32Value) }
+        }
 
         // If the board reports oled_number == 0 (just rebooted or display not yet set),
-        // push positions again. Rate-limited to once every 5 seconds so we don't spam.
+        // push positions and brightness again. Rate-limited to once every 5 seconds so we don't spam.
         if let oledNum = json["oled_number"] as? Int, oledNum == 0,
            Date().timeIntervalSince(lastPositionsPushAttempt) > 5 {
             lastPositionsPushAttempt = Date()
             onConnected?()
+            let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
+            let pct = savedPct == 0 ? 100 : savedPct
+            let esp32Value = Int(Double(pct) / 100.0 * 255.0)
+            Task { await self.sendBrightness(esp32Value) }
         }
 
         // Status
