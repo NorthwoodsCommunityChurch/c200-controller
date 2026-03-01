@@ -902,6 +902,7 @@ struct TallyLED: View {
                             )
                     )
             }
+            .frame(width: 32, height: 32) // fixed size — prevents layout shift when glow appears
             Text(label)
                 .font(.system(size: 8, weight: .semibold, design: .monospaced))
                 .foregroundColor(isOn ? onColor : Color(white: 0.35))

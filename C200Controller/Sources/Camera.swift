@@ -928,15 +928,14 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     // MARK: - Tally Control
 
     func updateTallyState(program: Bool, preview: Bool) async {
-        // Always update local state immediately so the UI reflects the switcher's
-        // intent regardless of ESP32 connectivity. The WebSocket echo will confirm
-        // the actual LED state; if it disagrees, it corrects us.
-        await MainActor.run {
-            self.tallyProgram = program
-            self.tallyPreview = preview
+        guard camera.connectionType == .esp32 else {
+            // Direct connection: no ESP32/WebSocket, so update UI directly
+            await MainActor.run {
+                self.tallyProgram = program
+                self.tallyPreview = preview
+            }
+            return
         }
-
-        guard camera.connectionType == .esp32 else { return }
 
         let command = program ? "program" : (preview ? "preview" : "off")
 
@@ -955,6 +954,8 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
             request.httpMethod = "POST"
             request.timeoutInterval = 2.0
             _ = try await session.data(for: request)
+            // Tally state is updated via WebSocket echo — single source of truth,
+            // no double-update flash.
         } catch {
             appLog("Tally command error for \(camera.name): \(error)")
         }
