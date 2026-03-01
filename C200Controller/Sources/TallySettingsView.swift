@@ -318,9 +318,7 @@ struct CameraTallyRow: View {
         }
         let label = program ? "PROGRAM" : (preview ? "PREVIEW" : "OFF")
         appLog("Debug tally \(label) → \(camera.name)")
-        Task {
-            await state.updateTallyState(program: program, preview: preview)
-        }
+        state.updateTallyState(program: program, preview: preview)
     }
 }
 

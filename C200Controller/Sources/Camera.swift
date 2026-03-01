@@ -118,6 +118,8 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     private var isDirectPolling = false
     private var webSocketTask: URLSessionWebSocketTask?
     private var webSocketReconnectTask: Task<Void, Never>?
+    private var wsPingTimer: Timer?          // periodic ping to detect zombie connections
+    private var currentTallyTask: Task<Void, Never>?  // cancels stale tally commands on rapid cuts
     private let session: URLSession
     private var cameraCookies: String = ""
     private var cameraUsername = "admin"
@@ -135,8 +137,10 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     deinit {
         pollTimer?.invalidate()
         reconnectTimer?.invalidate()
+        wsPingTimer?.invalidate()
         webSocketTask?.cancel(with: .normalClosure, reason: nil)
         webSocketReconnectTask?.cancel()
+        currentTallyTask?.cancel()
     }
 
     // MARK: - Connection
@@ -225,11 +229,16 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         webSocketTask = nil
         webSocketReconnectTask?.cancel()
         webSocketReconnectTask = nil
+        wsPingTimer?.invalidate()
+        wsPingTimer = nil
+        currentTallyTask?.cancel()
         reconnectTimer?.invalidate()
         reconnectTimer = nil
         isConnected = false
         isReconnecting = false
         esp32Reachable = false
+        tallyProgram = false
+        tallyPreview = false
         cameraCookies = ""
     }
 
@@ -283,6 +292,8 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     private func startWebSocket() {
         webSocketReconnectTask?.cancel()
         webSocketReconnectTask = nil
+        wsPingTimer?.invalidate()
+        wsPingTimer = nil
         webSocketTask?.cancel(with: .normalClosure, reason: nil)
 
         guard let url = URL(string: "ws://\(camera.ip)/ws") else { return }
@@ -290,6 +301,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         webSocketTask = session.webSocketTask(with: url)
         webSocketTask?.resume()
         receiveWebSocketMessage()
+        startWSPingTimer()
     }
 
     private func receiveWebSocketMessage() {
@@ -301,13 +313,47 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
                     Task { await self.handleWebSocketUpdate(text) }
                 }
                 self.receiveWebSocketMessage()
-            case .failure:
-                Task { @MainActor [weak self] in self?.esp32Reachable = false }
-                // Reconnect after 3 seconds
-                self.webSocketReconnectTask = Task {
-                    try? await Task.sleep(nanoseconds: 3_000_000_000)
-                    guard !Task.isCancelled else { return }
-                    appLog("WS reconnecting to \(self.camera.name)...")
+            case .failure(let error):
+                // A .cancelled URLError means startWebSocket() deliberately cancelled the old
+                // socket before creating a new one — don't trigger a second reconnect.
+                let wasCancelled = (error as? URLError)?.code == .cancelled ||
+                                   (error as NSError).code == NSURLErrorCancelled
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.wsPingTimer?.invalidate()
+                    self.wsPingTimer = nil
+                    guard !wasCancelled else { return }
+                    self.esp32Reachable = false
+                    self.tallyProgram = false
+                    self.tallyPreview = false
+                    // Reconnect after 3 seconds
+                    self.webSocketReconnectTask = Task {
+                        try? await Task.sleep(nanoseconds: 3_000_000_000)
+                        guard !Task.isCancelled else { return }
+                        appLog("WS reconnecting to \(self.camera.name)...")
+                        self.startWebSocket()
+                    }
+                }
+            }
+        }
+    }
+
+    /// Fires a ping every 5 s. A missed pong means the socket silently died — reconnect.
+    private func startWSPingTimer() {
+        wsPingTimer?.invalidate()
+        wsPingTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.sendWSPing() }
+        }
+    }
+
+    @MainActor
+    private func sendWSPing() {
+        guard let task = webSocketTask else { return }
+        task.sendPing { [weak self] error in
+            Task { @MainActor [weak self] in
+                guard let self, self.webSocketTask === task else { return }
+                if let error = error {
+                    appLog("WS ping failed for \(self.camera.name): \(error.localizedDescription) — reconnecting")
                     self.startWebSocket()
                 }
             }
@@ -927,15 +973,22 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
 
     // MARK: - Tally Control
 
+    /// Synchronous entry point — cancels any in-flight tally task before starting a new one.
+    /// This prevents stale commands from winning on rapid TSL cuts.
+    func updateTallyState(program: Bool, preview: Bool, withBrightness: Bool = true) {
+        currentTallyTask?.cancel()
+        currentTallyTask = Task {
+            await doUpdateTallyState(program: program, preview: preview, withBrightness: withBrightness)
+        }
+    }
+
     /// - withBrightness: Send brightness before the tally command (only needed on the
     ///   initial activation, not on periodic re-sends where brightness is already set).
-    func updateTallyState(program: Bool, preview: Bool, withBrightness: Bool = true) async {
+    private func doUpdateTallyState(program: Bool, preview: Bool, withBrightness: Bool) async {
         guard camera.connectionType == .esp32 else {
             // Direct connection: no ESP32/WebSocket, so update UI directly
-            await MainActor.run {
-                self.tallyProgram = program
-                self.tallyPreview = preview
-            }
+            tallyProgram = program
+            tallyPreview = preview
             return
         }
 
@@ -944,6 +997,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         // Send brightness first on initial activation to prevent the ESP32 from
         // briefly flashing at full brightness (255) after a reboot.
         if withBrightness && (program || preview) {
+            guard !Task.isCancelled else { return }
             let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
             let pct = savedPct == 0 ? 1 : savedPct
             let esp32Value = Int(Double(pct) / 100.0 * 255.0)
@@ -952,15 +1006,16 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
 
         // Retry up to 3 times — WiFi congestion can silently drop packets
         for attempt in 1...3 {
+            guard !Task.isCancelled else { return }
             do {
                 var request = URLRequest(url: URL(string: "http://\(camera.ip)/api/tally/\(command)")!)
                 request.httpMethod = "POST"
                 request.timeoutInterval = 1.0
                 _ = try await session.data(for: request)
-                // Tally state updated via WebSocket echo — single source of truth
                 return
             } catch {
                 if attempt < 3 {
+                    guard !Task.isCancelled else { return }
                     try? await Task.sleep(nanoseconds: 200_000_000) // 200ms between retries
                 } else {
                     appLog("Tally \(command) failed after 3 attempts for \(camera.name): \(error)")
@@ -975,7 +1030,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         do {
             var request = URLRequest(url: URL(string: "http://\(camera.ip)/api/tally/brightness/\(clamped)")!)
             request.httpMethod = "POST"
-            request.timeoutInterval = 2.0
+            request.timeoutInterval = 1.0
             _ = try await session.data(for: request)
             appLog("Brightness set to \(clamped) on \(camera.name)")
         } catch {

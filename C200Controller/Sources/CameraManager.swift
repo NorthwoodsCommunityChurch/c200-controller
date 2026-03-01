@@ -428,7 +428,7 @@ class CameraManager: ObservableObject {
 
         for camera in cameras {
             if let state = cameraStates[camera.id] {
-                Task { await state.updateTallyState(program: false, preview: false) }
+                state.updateTallyState(program: false, preview: false)
             }
         }
     }
@@ -447,7 +447,7 @@ class CameraManager: ObservableObject {
         // Send immediately
         for camera in matchingCameras {
             if let state = cameraStates[camera.id] {
-                Task { await state.updateTallyState(program: isProgram, preview: isPreview) }
+                state.updateTallyState(program: isProgram, preview: isPreview)
             }
         }
 
@@ -483,7 +483,7 @@ class CameraManager: ObservableObject {
             guard program || preview else { continue }
 
             if let state = cameraStates[camera.id] {
-                Task { await state.updateTallyState(program: program, preview: preview, withBrightness: false) }
+                state.updateTallyState(program: program, preview: preview, withBrightness: false)
             }
         }
     }

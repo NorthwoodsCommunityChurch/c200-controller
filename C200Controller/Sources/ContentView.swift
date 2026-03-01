@@ -988,21 +988,21 @@ struct TileTallySection: View {
 
                     // Debug buttons
                     HStack(spacing: 4) {
-                        Button { Task { await state.updateTallyState(program: true, preview: false) } } label: {
+                        Button { state.updateTallyState(program: true, preview: false) } label: {
                             Text("PGM").font(.system(size: 9, weight: .bold)).foregroundColor(.white)
                                 .padding(.horizontal, 5).padding(.vertical, 3)
                                 .background(Color.error).cornerRadius(3)
                         }
                         .buttonStyle(.plain).help("Force program tally")
 
-                        Button { Task { await state.updateTallyState(program: false, preview: true) } } label: {
+                        Button { state.updateTallyState(program: false, preview: true) } label: {
                             Text("PVW").font(.system(size: 9, weight: .bold)).foregroundColor(.white)
                                 .padding(.horizontal, 5).padding(.vertical, 3)
                                 .background(Color.success).cornerRadius(3)
                         }
                         .buttonStyle(.plain).help("Force preview tally")
 
-                        Button { Task { await state.updateTallyState(program: false, preview: false) } } label: {
+                        Button { state.updateTallyState(program: false, preview: false) } label: {
                             Text("OFF").font(.system(size: 9, weight: .semibold)).foregroundColor(.textSecondary)
                                 .padding(.horizontal, 5).padding(.vertical, 3)
                                 .background(Color.backgroundCard).cornerRadius(3)

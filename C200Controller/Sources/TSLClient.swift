@@ -135,20 +135,27 @@ class TSLClient {
                 continue
             }
 
-            // Try TSL 3.1 (fixed 18-byte messages)
-            if dataBuffer.count >= 18 && pbc > 1000 {
-                let messageData = Data(dataBuffer.prefix(18))
-                dataBuffer.removeFirst(18)
-                parseTSL31(messageData)
-                continue
+            // TSL 3.1: fixed 18-byte messages (pbc > 1000 since the first two bytes are
+            // address + control, forming a large little-endian value)
+            if pbc > 1000 {
+                if dataBuffer.count >= 18 {
+                    let messageData = Data(dataBuffer.prefix(18))
+                    dataBuffer.removeFirst(18)
+                    parseTSL31(messageData)
+                    continue
+                }
+                // Incomplete TSL 3.1 — wait for the rest of the 18-byte packet
+                break
             }
 
-            // Unknown format or not enough data - clear buffer to avoid infinite loop
-            if pbc > 1000 || totalMessageLength > dataBuffer.count {
-                appLog("TSL: Clearing buffer: unexpected data format (pbc=\(pbc))")
-                dataBuffer.removeAll()
+            // Incomplete TSL 5.0 — wait for more data
+            if pbc >= 10 && pbc <= 1000 && totalMessageLength > dataBuffer.count {
+                break
             }
-            break
+
+            // Unrecognizable byte — advance by 1 to resync rather than dropping all buffered data
+            appLog("TSL: Unrecognized byte 0x\(String(format: "%02X", bytes[0])) at buffer head, skipping")
+            dataBuffer.removeFirst(1)
         }
     }
 
