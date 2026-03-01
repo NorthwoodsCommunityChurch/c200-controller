@@ -162,7 +162,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
                         startPolling()
                         // Restore saved brightness on connect
                         let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
-                        let pct = savedPct == 0 ? 100 : savedPct
+                        let pct = savedPct == 0 ? 1 : savedPct
                         let esp32Value = Int(Double(pct) / 100.0 * 255.0)
                         Task { await self.sendBrightness(esp32Value) }
                         onConnected?()
@@ -327,7 +327,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
             onConnected?()
             // ESP32 just came back online — re-send brightness since it resets to full on reboot
             let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
-            let pct = savedPct == 0 ? 100 : savedPct
+            let pct = savedPct == 0 ? 1 : savedPct
             let esp32Value = Int(Double(pct) / 100.0 * 255.0)
             Task { await self.sendBrightness(esp32Value) }
         }
@@ -339,7 +339,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
             lastPositionsPushAttempt = Date()
             onConnected?()
             let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
-            let pct = savedPct == 0 ? 100 : savedPct
+            let pct = savedPct == 0 ? 1 : savedPct
             let esp32Value = Int(Double(pct) / 100.0 * 255.0)
             Task { await self.sendBrightness(esp32Value) }
         }

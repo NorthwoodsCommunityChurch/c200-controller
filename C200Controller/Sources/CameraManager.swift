@@ -388,7 +388,9 @@ class CameraManager: ObservableObject {
         tslClient?.onClientDisconnected = { [weak self] in
             Task { @MainActor in
                 self?.tslClientConnected = false
-                appLog("TSL: switcher disconnected")
+                appLog("TSL: switcher disconnected — clearing all tally")
+                // Clear tally on all cameras so nothing stays stuck when switcher goes offline
+                self?.clearAllTally()
             }
         }
 
@@ -411,6 +413,14 @@ class CameraManager: ObservableObject {
         tslListening = false
         tslClientConnected = false
         UserDefaults.standard.set(false, forKey: "tsl_enabled")
+    }
+
+    private func clearAllTally() {
+        for camera in cameras {
+            if let state = cameraStates[camera.id] {
+                Task { await state.updateTallyState(program: false, preview: false) }
+            }
+        }
     }
 
     private func handleTallyUpdate(index: Int, isProgram: Bool, isPreview: Bool) {

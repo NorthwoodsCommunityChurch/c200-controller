@@ -6,7 +6,7 @@ struct TallySettingsView: View {
 
     @State private var searchText = ""
     @State private var portText = ""
-    @State private var brightness: Double = Double(UserDefaults.standard.integer(forKey: "tally_brightness") == 0 ? 100 : UserDefaults.standard.integer(forKey: "tally_brightness"))
+    @State private var brightness: Double = Double(UserDefaults.standard.integer(forKey: "tally_brightness") == 0 ? 1 : UserDefaults.standard.integer(forKey: "tally_brightness"))
     @State private var brightnessDebounce: DispatchWorkItem?
 
     var filteredCameras: [Camera] {
