@@ -324,6 +324,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
                     self.wsPingTimer = nil
                     guard !wasCancelled else { return }
                     self.esp32Reachable = false
+                    self.isConnected = false
                     self.tallyProgram = false
                     self.tallyPreview = false
                     // Reconnect after 3 seconds

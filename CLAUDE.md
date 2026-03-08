@@ -1,5 +1,9 @@
 # C200 Controller — Project Context
 
+## Security
+
+See [SECURITY.md](SECURITY.md) for security findings from the 2026-03-01 review.
+
 ## Project Summary
 
 macOS app (SwiftUI) that controls Canon C200 cameras wirelessly via an ESP32-S3 hardware bridge. Production tool used at Northwoods Community Church for live broadcasts.
@@ -320,7 +324,7 @@ Before any public/shared release: move credentials to Keychain (camera) and NVS/
 
 ## Version
 
-Current: `v1.0.18` (build 17)
-CFBundleVersion: 17
-MARKETING_VERSION: 1.0.18
+Current: `v1.0.26` (build 25)
+CFBundleVersion: 25
+MARKETING_VERSION: 1.0.26
 
