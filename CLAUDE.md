@@ -297,6 +297,7 @@ This means every fix, no matter how small, requires:
 
 ## Pending Work
 
+- [x] Update app icon (new icon generated 2026-03-08 via ChatGPT DALL-E — cinema camera silhouette with wireless arcs, dark navy squircle). Image needs to be resized to all icon sizes and pushed to git.
 - [ ] Bitfocus Companion module (skeleton in `companion-module/`)
 - [ ] Production multi-camera testing
 - [ ] Intel Mac testing
@@ -324,7 +325,7 @@ Before any public/shared release: move credentials to Keychain (camera) and NVS/
 
 ## Version
 
-Current: `v1.0.26` (build 25)
-CFBundleVersion: 25
-MARKETING_VERSION: 1.0.26
+Current: `v1.0.27` (build 26)
+CFBundleVersion: 26
+MARKETING_VERSION: 1.0.27
 
