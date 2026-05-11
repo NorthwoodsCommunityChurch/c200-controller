@@ -977,15 +977,12 @@ struct TileTallySection: View {
     @EnvironmentObject var cameraManager: CameraManager
     @State private var showingIndexPicker = false
 
-    private var tslIndices: [Int] {
-        cameraManager.cameras.first { $0.id == camera.id }?.tslIndices ?? []
+    private var tslIndex: Int {
+        cameraManager.cameras.first { $0.id == camera.id }?.tslIndex ?? 0
     }
 
     private var assignmentLabel: String {
-        if tslIndices.isEmpty { return "None" }
-        let sorted = tslIndices.sorted()
-        if sorted.count <= 4 { return sorted.map(String.init).joined(separator: ", ") }
-        return sorted.prefix(3).map(String.init).joined(separator: ", ") + " +\(sorted.count - 3)"
+        tslIndex == 0 ? "None" : "\(tslIndex)"
     }
 
     var body: some View {
@@ -1009,7 +1006,7 @@ struct TileTallySection: View {
             // TSL input assignment
             if camera.connectionType == .esp32 {
                 HStack(spacing: 6) {
-                    Text("Inputs:")
+                    Text("Input:")
                         .font(.system(size: 10))
                         .foregroundColor(.textSecondary)
 
@@ -1019,7 +1016,7 @@ struct TileTallySection: View {
                         HStack(spacing: 4) {
                             Text(assignmentLabel)
                                 .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                .foregroundColor(tslIndices.isEmpty ? .textSecondary : .textPrimary)
+                                .foregroundColor(tslIndex == 0 ? .textSecondary : .textPrimary)
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 8))
                                 .foregroundColor(.textSecondary)
@@ -1031,12 +1028,12 @@ struct TileTallySection: View {
                     }
                     .buttonStyle(.plain)
                     .popover(isPresented: $showingIndexPicker, arrowEdge: .bottom) {
-                        TSLIndexPicker(selectedIndices: Binding(
-                            get: { tslIndices },
-                            set: { newIndices in
-                                cameraManager.setTslIndices(for: camera.id, indices: newIndices)
-                            }
-                        ))
+                        TSLIndexPicker(selectedIndex: Binding(
+                            get: { tslIndex },
+                            set: { _ in /* updated via onPick below */ }
+                        ), onPick: { newIndex in
+                            cameraManager.setTslIndex(for: camera.id, index: newIndex)
+                        })
                     }
 
                     Spacer()

@@ -196,17 +196,12 @@ struct CameraTallyRow: View {
 
     @State private var showingPicker = false
 
-    var selectedIndices: [Int] {
-        cameraManager.cameras.first { $0.id == camera.id }?.tslIndices ?? []
+    var selectedIndex: Int {
+        cameraManager.cameras.first { $0.id == camera.id }?.tslIndex ?? 0
     }
 
     var assignmentLabel: String {
-        if selectedIndices.isEmpty { return "None" }
-        let sorted = selectedIndices.sorted()
-        if sorted.count <= 4 {
-            return sorted.map(String.init).joined(separator: ", ")
-        }
-        return sorted.prefix(3).map(String.init).joined(separator: ", ") + " +\(sorted.count - 3)"
+        selectedIndex == 0 ? "None" : "Input \(selectedIndex)"
     }
 
     var body: some View {
@@ -270,7 +265,7 @@ struct CameraTallyRow: View {
                 HStack(spacing: 5) {
                     Text(assignmentLabel)
                         .font(.caption)
-                        .foregroundColor(selectedIndices.isEmpty ? .secondary : .primary)
+                        .foregroundColor(selectedIndex == 0 ? .secondary : .primary)
                     Image(systemName: "chevron.down")
                         .font(.caption2)
                         .foregroundColor(.secondary)
@@ -287,13 +282,13 @@ struct CameraTallyRow: View {
             }
             .buttonStyle(.plain)
             .popover(isPresented: $showingPicker, arrowEdge: .trailing) {
-                TSLIndexPicker(selectedIndices: Binding(
-                    get: { selectedIndices },
-                    set: { newIndices in
-                        cameraManager.setTslIndices(for: camera.id, indices: newIndices)
-                        appLog("Updated TSL indices for \(camera.name): \(newIndices.sorted())")
-                    }
-                ))
+                TSLIndexPicker(selectedIndex: Binding(
+                    get: { selectedIndex },
+                    set: { _ in /* updated via onPick below */ }
+                ), onPick: { newIndex in
+                    cameraManager.setTslIndex(for: camera.id, index: newIndex)
+                    appLog("Updated TSL index for \(camera.name): \(newIndex)")
+                })
             }
 
             // Live tally indicators
@@ -327,11 +322,16 @@ struct CameraTallyRow: View {
 
 // MARK: - TSL Index Picker Popover
 
+/// Single-index picker. Boards only ever apply one tally index, so the UI
+/// matches: tap a row to select it (auto-dismisses the popover), or tap
+/// "None" to clear. 0 means unassigned.
 struct TSLIndexPicker: View {
-    @Binding var selectedIndices: [Int]
+    @Binding var selectedIndex: Int
+    var onPick: ((Int) -> Void)? = nil
     @State private var search = ""
+    @Environment(\.dismiss) private var dismiss
 
-    var filteredIndices: [Int] {
+    private var filteredIndices: [Int] {
         let all = Array(1...127)
         if search.isEmpty { return all }
         return all.filter { String($0).contains(search) }
@@ -339,7 +339,6 @@ struct TSLIndexPicker: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Search field
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
@@ -359,63 +358,47 @@ struct TSLIndexPicker: View {
 
             Divider()
 
-            // Index list
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    // "None" row — clears the assignment
+                    pickerRow(label: "None", index: 0, isSelected: selectedIndex == 0)
+                    Divider().padding(.leading, 38)
+
                     ForEach(filteredIndices, id: \.self) { index in
-                        Button(action: { toggleIndex(index) }) {
-                            HStack(spacing: 10) {
-                                Image(systemName: selectedIndices.contains(index) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundColor(selectedIndices.contains(index) ? .accentColor : Color(NSColor.tertiaryLabelColor))
-                                    .font(.system(size: 15))
-                                Text("Input \(index)")
-                                    .foregroundColor(.primary)
-                                    .font(.callout)
-                                Spacer()
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(selectedIndices.contains(index) ? Color.accentColor.opacity(0.08) : Color.clear)
-                        }
-                        .buttonStyle(.plain)
-
+                        pickerRow(label: "Input \(index)", index: index, isSelected: selectedIndex == index)
                         if index != filteredIndices.last {
-                            Divider()
-                                .padding(.leading, 38)
+                            Divider().padding(.leading, 38)
                         }
                     }
                 }
-            }
-
-            // Footer: selected count + clear
-            if !selectedIndices.isEmpty {
-                Divider()
-                HStack {
-                    Text("\(selectedIndices.count) selected")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Button("Clear All") {
-                        selectedIndices = []
-                    }
-                    .font(.caption)
-                    .buttonStyle(.plain)
-                    .foregroundColor(.red)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color(NSColor.controlBackgroundColor))
             }
         }
         .frame(width: 210, height: 320)
     }
 
-    private func toggleIndex(_ index: Int) {
-        if let pos = selectedIndices.firstIndex(of: index) {
-            selectedIndices.remove(at: pos)
-        } else {
-            selectedIndices.append(index)
+    @ViewBuilder
+    private func pickerRow(label: String, index: Int, isSelected: Bool) -> some View {
+        Button(action: { pick(index) }) {
+            HStack(spacing: 10) {
+                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                    .foregroundColor(isSelected ? .accentColor : Color(NSColor.tertiaryLabelColor))
+                    .font(.system(size: 15))
+                Text(label)
+                    .foregroundColor(.primary)
+                    .font(.callout)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
         }
+        .buttonStyle(.plain)
+    }
+
+    private func pick(_ index: Int) {
+        selectedIndex = index
+        onPick?(index)
+        dismiss()
     }
 }
 

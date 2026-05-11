@@ -9,7 +9,10 @@ struct Camera: Identifiable, Codable, Equatable {
     var ip: String              // Current IP address
     var connectionType: ConnectionType
     var isAutoDiscovered: Bool  // True if found via Bonjour
-    var tslIndices: [Int] = []  // TSL display indices (1-based) for tally assignment
+    // TSL display index (1-based) for tally assignment. 0 means unassigned.
+    // The board firmware only supports one index per camera; v1.2.1 dropped
+    // the multi-index UI to match that reality.
+    var tslIndex: Int = 0
     var positionsNumber: Int? = nil  // Camera Position # for Camera Positions integration
 
     enum ConnectionType: String, Codable {
@@ -18,20 +21,27 @@ struct Camera: Identifiable, Codable, Equatable {
     }
 
     init(id: String, name: String, ip: String, connectionType: ConnectionType,
-         isAutoDiscovered: Bool, tslIndices: [Int] = [], positionsNumber: Int? = nil) {
+         isAutoDiscovered: Bool, tslIndex: Int = 0, positionsNumber: Int? = nil) {
         self.id = id
         self.name = name
         self.ip = ip
         self.connectionType = connectionType
         self.isAutoDiscovered = isAutoDiscovered
-        self.tslIndices = tslIndices
+        self.tslIndex = tslIndex
         self.positionsNumber = positionsNumber
     }
 
-    // Separate key enum for legacy migration (decoder only)
-    private enum LegacyKeys: String, CodingKey { case tslIndex }
+    private enum CodingKeys: String, CodingKey {
+        case id, name, ip, connectionType, isAutoDiscovered
+        case tslIndex
+        case tslIndices  // legacy multi-index format (v1.0.34 – v1.2.0)
+        case positionsNumber
+    }
 
-    // Custom decoder: migrates old tslIndex (Int?) to tslIndices ([Int])
+    // Migration-aware decoder. Reads, in priority order:
+    //   1. tslIndex (current single-index format, v1.2.1+)
+    //   2. tslIndices.first  (multi-index format used in v1.0.34–1.2.0)
+    //   3. legacy single tslIndex Int? (pre-v1.0.34)
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
@@ -39,18 +49,28 @@ struct Camera: Identifiable, Codable, Equatable {
         ip = try c.decode(String.self, forKey: .ip)
         connectionType = try c.decode(ConnectionType.self, forKey: .connectionType)
         isAutoDiscovered = try c.decode(Bool.self, forKey: .isAutoDiscovered)
-        if let indices = try? c.decode([Int].self, forKey: .tslIndices) {
-            tslIndices = indices
+        if let single = try? c.decode(Int.self, forKey: .tslIndex) {
+            tslIndex = single
+        } else if let multi = try? c.decode([Int].self, forKey: .tslIndices),
+                  let first = multi.sorted().first {
+            tslIndex = first
         } else {
-            // Migrate from old single-index format
-            let legacy = try? decoder.container(keyedBy: LegacyKeys.self)
-            if let single = try? legacy?.decode(Int.self, forKey: .tslIndex) {
-                tslIndices = [single]
-            } else {
-                tslIndices = []
-            }
+            tslIndex = 0
         }
         positionsNumber = try? c.decode(Int.self, forKey: .positionsNumber)
+    }
+
+    // Explicit encoder — synthesis is suppressed because CodingKeys includes
+    // the legacy `tslIndices` migration key with no backing property.
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(ip, forKey: .ip)
+        try c.encode(connectionType, forKey: .connectionType)
+        try c.encode(isAutoDiscovered, forKey: .isAutoDiscovered)
+        try c.encode(tslIndex, forKey: .tslIndex)
+        try c.encodeIfPresent(positionsNumber, forKey: .positionsNumber)
     }
 
     static func == (lhs: Camera, rhs: Camera) -> Bool {
@@ -58,7 +78,7 @@ struct Camera: Identifiable, Codable, Equatable {
         lhs.name == rhs.name &&
         lhs.ip == rhs.ip &&
         lhs.connectionType == rhs.connectionType &&
-        lhs.tslIndices == rhs.tslIndices &&
+        lhs.tslIndex == rhs.tslIndex &&
         lhs.positionsNumber == rhs.positionsNumber
     }
 }

@@ -463,7 +463,7 @@ class CameraManager: ObservableObject {
     /// (monitoring), and so swap-toggle changes are reflected in the tile
     /// instantly even before the boards have a chance to re-read NVS.
     private func handleTallyUpdate(index: Int, isProgram rawProgram: Bool, isPreview rawPreview: Bool) {
-        let matchingCameras = cameras.filter { $0.tslIndices.contains(index) }
+        let matchingCameras = cameras.filter { $0.tslIndex == index }
         guard !matchingCameras.isEmpty else { return }
 
         let isProgram = tslSwapProgramPreview ? rawPreview : rawProgram
@@ -483,11 +483,7 @@ class CameraManager: ObservableObject {
     /// without any operator action.
     private func pushTslConfigToESP32(camera: Camera) {
         guard let state = cameraStates[camera.id] else { return }
-        // Firmware supports a single tally index per board. If the user has
-        // configured multiple indices for one camera, the first one wins; the
-        // dashboard's tile UI still ORs across all of them for visual purposes.
-        let primaryIndex = camera.tslIndices.sorted().first ?? 0
-        state.sendTslConfig(index: primaryIndex,
+        state.sendTslConfig(index: camera.tslIndex,
                             port: tslPort,
                             swap: tslSwapProgramPreview)
     }
@@ -503,9 +499,9 @@ class CameraManager: ObservableObject {
     /// Updates a camera's TSL index assignment and pushes the new config to
     /// the corresponding board. Single entry point used by the Tally Settings
     /// UI so the index change and the board push can't get out of sync.
-    func setTslIndices(for cameraId: String, indices: [Int]) {
+    func setTslIndex(for cameraId: String, index: Int) {
         guard let idx = cameras.firstIndex(where: { $0.id == cameraId }) else { return }
-        cameras[idx].tslIndices = indices
+        cameras[idx].tslIndex = index
         saveCameras()
         pushTslConfigToESP32(camera: cameras[idx])
     }
