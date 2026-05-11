@@ -18,7 +18,7 @@ class FirmwareUpdateManager: ObservableObject {
             switch self {
             case .idle:                return "Ready"
             case .starting:            return "Starting..."
-            case .downloading(let p):  return "Downloading \(p)%"
+            case .downloading(let p):  return p > 0 ? "Downloading \(p)%" : "Downloading..."
             case .flashing:            return "Flashing..."
             case .rebooting:           return "Rebooting..."
             case .done(let v):         return "Done — v\(v)"
@@ -182,7 +182,23 @@ class FirmwareUpdateManager: ObservableObject {
         let cameraID = camera.id
         let cameraIP = camera.ip
 
-        // POST to trigger OTA
+        let cfg = URLSessionConfiguration.default
+        cfg.timeoutIntervalForRequest = 5
+        cfg.timeoutIntervalForResource = 10
+        let session = URLSession(configuration: cfg)
+        // URLSession(configuration:) leaks unless invalidated. defer covers every return path.
+        defer { session.invalidateAndCancel() }
+
+        // Capture the board's running firmware before we POST. Success = we see a
+        // DIFFERENT version after the reboot. This is the authoritative signal — the
+        // /api/ota/status endpoint is unreliable in older firmware (returns "idle"
+        // during download due to mutex contention), so we never trust it for pass/fail.
+        let baselineVersion = await fetchFirmwareVersion(cameraIP: cameraIP, session: session)
+        let targetVersion = availableFirmwareVersion
+        appLog("FirmwareUpdate[\(camera.name)]: baseline=\(baselineVersion ?? "?") target=\(targetVersion ?? "?")")
+
+        appLog("FirmwareUpdate[\(camera.name)]: POST /api/ota/update url=\(firmwareURL)")
+
         guard let postURL = URL(string: "http://\(cameraIP)/api/ota/update") else { return }
         var request = URLRequest(url: postURL, timeoutInterval: 10)
         request.httpMethod = "POST"
@@ -190,80 +206,112 @@ class FirmwareUpdateManager: ObservableObject {
         request.httpBody = try? JSONSerialization.data(withJSONObject: ["url": firmwareURL])
 
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
-            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+            let (_, response) = try await session.data(for: request)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            appLog("FirmwareUpdate[\(camera.name)]: POST response HTTP \(code)")
+            if code != 200 {
                 await MainActor.run {
-                    self.boardStatuses[cameraID] = .error("HTTP \(http.statusCode)")
+                    self.boardStatuses[cameraID] = .error("HTTP \(code)")
                 }
                 return
             }
         } catch {
+            appLog("FirmwareUpdate[\(camera.name)]: POST failed: \(error.localizedDescription)")
             await MainActor.run {
                 self.boardStatuses[cameraID] = .error(error.localizedDescription)
             }
             return
         }
 
-        // Poll /api/ota/status until done or error
-        guard let statusURL = URL(string: "http://\(cameraIP)/api/ota/status") else { return }
-        let deadline = Date().addingTimeInterval(120)
+        // POST accepted — assume download is in flight. Show "Downloading..." even if
+        // /api/ota/status keeps returning "idle" (old firmware bug). We'll flip to
+        // "Rebooting" when the board goes unreachable, and "Done" when it comes back
+        // on a new version.
+        await MainActor.run { self.boardStatuses[cameraID] = .downloading(0) }
+
+        let statusURL = URL(string: "http://\(cameraIP)/api/ota/status")
+        let deadline = Date().addingTimeInterval(180)
+
+        var unreachableSince: Date? = nil
+        var seenOTAProgress = false   // board's /api/ota/status actually reported movement
+        var pollNum = 0
 
         while Date() < deadline {
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            pollNum += 1
 
-            do {
-                let (data, _) = try await URLSession.shared.data(from: statusURL)
-                guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+            // Primary signal: /api/status (firmware_version + reachability)
+            let currentVersion = await fetchFirmwareVersion(cameraIP: cameraIP, session: session)
 
-                let state = json["state"] as? String ?? "idle"
-                let progress = json["progress"] as? Int ?? 0
-                let errMsg = json["error"] as? String ?? ""
-
-                await MainActor.run {
-                    switch state {
-                    case "downloading": self.boardStatuses[cameraID] = .downloading(progress)
-                    case "flashing":    self.boardStatuses[cameraID] = .flashing
-                    case "rebooting":   self.boardStatuses[cameraID] = .rebooting
-                    case "error":       self.boardStatuses[cameraID] = .error(errMsg.isEmpty ? "Unknown error" : errMsg)
-                    default: break
-                    }
+            if currentVersion == nil {
+                // Board unreachable — almost certainly flashing/rebooting.
+                if unreachableSince == nil {
+                    unreachableSince = Date()
+                    appLog("FirmwareUpdate[\(camera.name)]: unreachable (flashing/rebooting)")
                 }
-
-                if state == "error" { return }
-
-                if state == "rebooting" {
-                    // Board is restarting — wait 15s then verify new version
-                    appLog("FirmwareUpdate: \(camera.name) rebooting, waiting 15s...")
-                    try? await Task.sleep(nanoseconds: 15_000_000_000)
-                    let newVersion = await confirmVersion(cameraIP: cameraIP)
-                    await MainActor.run {
-                        self.boardStatuses[cameraID] = .done(newVersion ?? "?")
-                    }
+                await MainActor.run { self.boardStatuses[cameraID] = .rebooting }
+            } else {
+                unreachableSince = nil
+                // Version changed? That's success.
+                if let cv = currentVersion, cv != baselineVersion {
+                    appLog("FirmwareUpdate[\(camera.name)]: version \(baselineVersion ?? "?") → \(cv) — DONE")
+                    await MainActor.run { self.boardStatuses[cameraID] = .done(cv) }
                     return
                 }
-            } catch {
-                // Connection refused during reboot is expected — just keep waiting
-                appLog("FirmwareUpdate: Poll error for \(cameraIP): \(error.localizedDescription)")
+                // Still reachable on old version. Try the (possibly-broken) OTA status
+                // endpoint purely for progress display — never fail on its output.
+                if let sURL = statusURL,
+                   let (data, _) = try? await session.data(from: sURL),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    let state = json["state"] as? String ?? "idle"
+                    let progress = json["progress"] as? Int ?? 0
+                    appLog("FirmwareUpdate[\(camera.name)]: poll \(pollNum) state=\(state) progress=\(progress)% version=\(currentVersion ?? "?")")
+                    switch state {
+                    case "downloading":
+                        seenOTAProgress = true
+                        await MainActor.run { self.boardStatuses[cameraID] = .downloading(progress) }
+                    case "flashing":
+                        seenOTAProgress = true
+                        await MainActor.run { self.boardStatuses[cameraID] = .flashing }
+                    case "rebooting":
+                        seenOTAProgress = true
+                        await MainActor.run { self.boardStatuses[cameraID] = .rebooting }
+                    case "error":
+                        let errMsg = json["error"] as? String ?? "Unknown error"
+                        appLog("FirmwareUpdate[\(camera.name)]: board reported error: \(errMsg)")
+                        await MainActor.run { self.boardStatuses[cameraID] = .error(errMsg.isEmpty ? "Unknown error" : errMsg) }
+                        return
+                    default:
+                        // "idle" — keep whatever we showed last. Do NOT error out here;
+                        // the endpoint is known to lie on older firmware.
+                        break
+                    }
+                } else {
+                    appLog("FirmwareUpdate[\(camera.name)]: poll \(pollNum) version=\(currentVersion ?? "?") (status endpoint no response)")
+                }
             }
         }
 
-        // Timed out
-        await MainActor.run {
-            if case .rebooting = self.boardStatuses[cameraID] ?? .idle { } else {
-                self.boardStatuses[cameraID] = .error("Timeout")
-            }
+        // Timed out. Final check: did the board come back on a new version?
+        if let cv = await fetchFirmwareVersion(cameraIP: cameraIP, session: session),
+           cv != baselineVersion {
+            appLog("FirmwareUpdate[\(camera.name)]: timeout but board reachable on \(cv) — DONE")
+            await MainActor.run { self.boardStatuses[cameraID] = .done(cv) }
+        } else if seenOTAProgress {
+            appLog("FirmwareUpdate[\(camera.name)]: TIMEOUT — OTA started but didn't complete")
+            await MainActor.run { self.boardStatuses[cameraID] = .error("Timeout — try again") }
+        } else {
+            appLog("FirmwareUpdate[\(camera.name)]: TIMEOUT — no version change")
+            await MainActor.run { self.boardStatuses[cameraID] = .error("Timeout — try again") }
         }
     }
 
-    private func confirmVersion(cameraIP: String) async -> String? {
+    private func fetchFirmwareVersion(cameraIP: String, session: URLSession) async -> String? {
         guard let url = URL(string: "http://\(cameraIP)/api/status") else { return nil }
-        for _ in 0..<5 {
-            if let (data, _) = try? await URLSession.shared.data(from: url),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let version = json["firmware_version"] as? String {
-                return version
-            }
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
+        if let (data, _) = try? await session.data(from: url),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let version = json["firmware_version"] as? String {
+            return version
         }
         return nil
     }

@@ -12,6 +12,15 @@ class TSLClient {
     var onClientDisconnected: (() -> Void)?      // switcher disconnected
     var onTallyUpdate: ((Int, Bool, Bool) -> Void)?
 
+    // Per-index state cache so we only dispatch onTallyUpdate when the resolved tally
+    // state actually changes. Switchers re-send the same state every cycle (often many
+    // times per second per index) and a busy switcher emits thousands of indices we don't
+    // even care about. Dispatching every one to @MainActor was overwhelming the main
+    // actor and crashing the app under sustained cut storms (KERN_INVALID_ADDRESS in
+    // KeyPath._projectReadOnly while reading @Published cameras). Accessed only from
+    // the NWConnection receive callback — single-threaded, no lock needed.
+    private var lastTallyState: [Int: (program: Bool, preview: Bool)] = [:]
+
     init(host: String, port: UInt16) {
         // host is ignored - we listen on the specified port for incoming TSL data
         self.port = port
@@ -183,6 +192,12 @@ class TSLClient {
         // TSL index is typically 1-based, convert to our index
         let index = address + 1
 
+        let prev = lastTallyState[index]
+        if prev?.program == isProgram && prev?.preview == isPreview {
+            return  // unchanged — switcher re-sending; skip the main-actor hop
+        }
+        lastTallyState[index] = (isProgram, isPreview)
+
         appLog("TSL 3.1: Address=\(address), Index=\(index), Preview=\(isPreview), Program=\(isProgram)")
 
         DispatchQueue.main.async { [weak self] in
@@ -218,6 +233,12 @@ class TSLClient {
         let tally2 = (control >> 2) & 0x03
         let isProgram = tally1 > 0
         let isPreview = tally2 > 0
+
+        let prev = lastTallyState[index]
+        if prev?.program == isProgram && prev?.preview == isPreview {
+            return  // unchanged — skip the main-actor hop
+        }
+        lastTallyState[index] = (isProgram, isPreview)
 
         appLog("TSL 5.0: Index=\(index), Preview=\(isPreview), Program=\(isProgram)")
 

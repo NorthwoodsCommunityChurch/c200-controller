@@ -426,13 +426,16 @@ struct TileFront: View {
                             }
                     }
 
-                    HStack(spacing: 4) {
-                        Image(systemName: camera.connectionType == .esp32 ? "wifi" : "antenna.radiowaves.left.and.right")
-                            .font(.system(size: 9))
-                        Text(camera.ip)
-                            .font(.system(size: 10, design: .monospaced))
+                    // IP address shown only when connected — offline tiles hide stale info.
+                    if state.isConnected {
+                        HStack(spacing: 4) {
+                            Image(systemName: camera.connectionType == .esp32 ? "wifi" : "antenna.radiowaves.left.and.right")
+                                .font(.system(size: 9))
+                            Text(camera.ip)
+                                .font(.system(size: 10, design: .monospaced))
+                        }
+                        .foregroundColor(.textSecondary)
                     }
-                    .foregroundColor(.textSecondary)
                 }
 
                 Spacer()
@@ -488,48 +491,36 @@ struct TileFront: View {
                             color: .gray, progress: ndProgress)
                     }
                 } else {
-                    // Disconnected - placeholder circles with status overlay
-                    ZStack {
-                        VStack(spacing: 8) {
-                            HStack(spacing: 8) {
-                                ForEach(0..<3, id: \.self) { _ in PlaceholderCircle() }
-                            }
-                            HStack(spacing: 8) {
-                                ForEach(0..<3, id: \.self) { _ in PlaceholderCircle() }
-                            }
-                        }
-                        VStack(spacing: 6) {
-                            if camera.connectionType == .esp32 {
-                                HStack(spacing: 4) {
-                                    Circle()
-                                        .fill(state.esp32Reachable ? Color.green : Color.red)
-                                        .frame(width: 6, height: 6)
-                                    Text(state.esp32Reachable ? "ESP32 Online" : "ESP32 Offline")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.textSecondary)
-                                }
-                                HStack(spacing: 4) {
-                                    Circle()
-                                        .fill(state.isConnected ? Color.green : Color.red)
-                                        .frame(width: 6, height: 6)
-                                    Text(state.isConnected ? "Camera Online" : "Camera Disconnected")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.textSecondary)
-                                }
-                            } else {
-                                Text("Not connected")
+                    // Disconnected — compact centered status block, no placeholder circles.
+                    VStack(spacing: 10) {
+                        if camera.connectionType == .esp32 {
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(state.esp32Reachable ? Color.green : Color.red)
+                                    .frame(width: 8, height: 8)
+                                Text(state.esp32Reachable ? "ESP32 Online" : "ESP32 Offline")
                                     .font(.system(size: 12))
                                     .foregroundColor(.textSecondary)
                             }
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(state.isConnected ? Color.green : Color.red)
+                                    .frame(width: 8, height: 8)
+                                Text(state.isConnected ? "Camera Online" : "Camera Disconnected")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.textSecondary)
+                            }
+                        } else {
+                            Text("Not connected")
+                                .font(.system(size: 12))
+                                .foregroundColor(.textSecondary)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(8)
                     }
+                    .frame(maxWidth: .infinity)
                 }
             }
-            .frame(height: circlesHeight)
+            // Fixed circlesHeight only when connected; disconnected state sizes to content.
+            .frame(height: state.isConnected ? circlesHeight : nil)
 
             Divider().background(Color.backgroundCard)
 
@@ -543,28 +534,27 @@ struct TileFront: View {
             .animation(.easeInOut(duration: 0.12), value: state.tallyProgram)
             .animation(.easeInOut(duration: 0.12), value: state.tallyPreview)
 
-            // Action button (REC or Connect)
-            Button {
-                if state.isConnected {
+            // REC/STOP button — only shown when connected. Nothing here when disconnected;
+            // the tile's disconnected-state overlay already communicates status, and
+            // auto-reconnect runs continuously in the background.
+            if state.isConnected {
+                Button {
                     state.toggleRecord()
-                } else {
-                    state.stopAutoReconnect()
-                    Task { await state.connect() }
+                } label: {
+                    HStack {
+                        Image(systemName: state.isRecording ? "stop.fill" : "record.circle")
+                            .font(.system(size: 12))
+                        Text(state.isRecording ? "STOP" : "REC")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(state.isRecording ? Color.error : Color.backgroundCard)
+                    .foregroundColor(state.isRecording ? .white : .textPrimary)
+                    .cornerRadius(6)
                 }
-            } label: {
-                HStack {
-                    Image(systemName: state.isConnected ? (state.isRecording ? "stop.fill" : "record.circle") : "arrow.clockwise")
-                        .font(.system(size: 12))
-                    Text(state.isConnected ? (state.isRecording ? "STOP" : "REC") : "Connect")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(state.isConnected ? (state.isRecording ? Color.error : Color.backgroundCard) : Color.accent)
-                .foregroundColor(state.isConnected ? (state.isRecording ? .white : .textPrimary) : .white)
-                .cornerRadius(6)
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -707,6 +697,10 @@ struct TileBack: View {
             TileCameraPositionSection(camera: camera)
                 .environmentObject(cameraManager)
 
+            // Identify button — flashes red+green on the ESP32 for 5 seconds so an
+            // operator can visually locate the physical bridge.
+            IdentifyButton(state: state)
+
             // Remove camera button
             Button {
                 showDeleteConfirm = true
@@ -735,6 +729,44 @@ struct TileBack: View {
     }
 }
 
+// MARK: - Identify button
+
+struct IdentifyButton: View {
+    @ObservedObject var state: CameraState
+    @State private var isRunning = false
+    @State private var secondsRemaining = 0
+
+    var body: some View {
+        Button {
+            guard !isRunning else { return }
+            isRunning = true
+            secondsRemaining = 5
+            Task { await state.sendIdentify() }
+            // Local countdown — firmware is the source of truth on actual LED timing.
+            Task { @MainActor in
+                for _ in 0..<5 {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    if secondsRemaining > 0 { secondsRemaining -= 1 }
+                }
+                isRunning = false
+            }
+        } label: {
+            HStack {
+                Image(systemName: isRunning ? "circle.dashed" : "lightbulb")
+                Text(isRunning ? "Identifying… \(secondsRemaining)s" : "Identify")
+            }
+            .font(.system(size: 11, weight: .medium))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(Color.accent.opacity(isRunning ? 0.25 : 0.15))
+            .foregroundColor(.accent)
+            .cornerRadius(6)
+        }
+        .buttonStyle(.plain)
+        .disabled(isRunning)
+    }
+}
+
 // MARK: - OLED Screen Preview
 
 struct OLEDPreview: View {
@@ -751,39 +783,34 @@ struct OLEDPreview: View {
         return cameraManager.positionsAssignments[n]
     }
 
-    private var tallyText: String {
-        if state.tallyProgram { return "PRG" }
-        if state.tallyPreview { return "PVW" }
-        return "---"
+    // Operator first name, clipped to 5 chars per row (matches firmware).
+    private var opFirstName: String {
+        let full = assignment?.operatorName ?? ""
+        return full.components(separatedBy: " ").first ?? full
     }
 
-    // Row 0: status bar
-    private var row0: String {
-        if let n = currentCamera.positionsNumber {
-            return "CAM \(n)  Tally:\(tallyText)"
-        } else {
-            let wifi = state.wifiConnected ? "OK" : "--"
-            let eth = state.ethConnected ? "OK" : "--"
-            return "WiFi:\(wifi)  Eth:\(eth)"
-        }
-    }
-
-    // Row 1: operator first name
-    private var row1: String {
-        let fullName = assignment?.operatorName ?? ""
-        return fullName.components(separatedBy: " ").first ?? fullName
-    }
-
-    // Row 2: first lens
-    private var row2: String {
+    private var firstLens: String {
         return assignment?.lenses.first ?? ""
     }
 
-    // Row 3: camera + record state
-    private var row3: String {
-        let cam = state.isConnected ? "OK" : "--"
-        let rec = state.isRecording ? "LIVE" : "----"
-        return "Cam:\(cam)  Rec:\(rec)"
+    // Truncated lines for the portrait layout (5-char width per row).
+    private func slice(_ s: String, start: Int) -> String {
+        guard s.count > start else { return "" }
+        let i = s.index(s.startIndex, offsetBy: start)
+        let endOffset = min(s.count - start, 5)
+        let j = s.index(i, offsetBy: endOffset)
+        return String(s[i..<j])
+    }
+
+    // RSSI-based bar level (matches the firmware's thresholds). 0 if not connected
+    // or we haven't received an RSSI reading yet.
+    private var wifiBarLevel: Int {
+        guard state.wifiConnected, let rssi = state.wifiRSSI else { return 0 }
+        if rssi >= -55 { return 4 }
+        if rssi >= -65 { return 3 }
+        if rssi >= -75 { return 2 }
+        if rssi >= -85 { return 1 }
+        return 0
     }
 
     var body: some View {
@@ -793,13 +820,28 @@ struct OLEDPreview: View {
                 .foregroundColor(.textSecondary)
                 .tracking(1.5)
 
+            // Portrait OLED simulation — matches physical box (black/white, narrow + tall).
+            // Tally is intentionally NOT rendered as text — the physical LED shows it.
             VStack(alignment: .leading, spacing: 1) {
-                oledRow(row0)
-                oledRow(row1)
-                oledRow(row2)
-                oledRow(row3)
+                oledRow("Oh Hi")                                        // row 0
+                oledRow("")                                             // 1
+                oledRow("WiFi")                                         // 2
+                oledBarsRow(level: wifiBarLevel)                        // 3
+                oledRow("")                                             // 4
+
+                if let n = currentCamera.positionsNumber {
+                    oledRow("Cam \(n)")                                 // 5
+                    oledRow("")                                         // 6
+                    oledRow("Op")                                       // 7
+                    oledRow(slice(opFirstName, start: 0))               // 8
+                    oledRow(slice(opFirstName, start: 5))               // 9
+                    oledRow("")                                         // 10
+                    oledRow("Lens")                                     // 11
+                    oledRow(slice(firstLens, start: 0))                 // 12
+                    oledRow(slice(firstLens, start: 5))                 // 13
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(width: 80, alignment: .leading)
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .background(Color.black)
@@ -808,19 +850,35 @@ struct OLEDPreview: View {
                 RoundedRectangle(cornerRadius: 5)
                     .stroke(Color(white: 0.28), lineWidth: 1)
             )
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .animation(.easeInOut(duration: 0.12), value: state.tallyProgram)
-        .animation(.easeInOut(duration: 0.12), value: state.tallyPreview)
-        .animation(.easeInOut(duration: 0.12), value: state.isRecording)
+        .animation(.easeInOut(duration: 0.12), value: state.wifiConnected)
+        .animation(.easeInOut(duration: 0.12), value: state.wifiRSSI)
     }
 
     @ViewBuilder
     private func oledRow(_ text: String) -> some View {
+        // Real OLED pixels are monochrome white-on-black — match that instead of green phosphor.
         Text(text.isEmpty ? " " : text)
             .font(.system(size: 10, weight: .medium, design: .monospaced))
-            .foregroundColor(Color(red: 0.0, green: 0.9, blue: 0.18))
+            .foregroundColor(.white)
             .lineLimit(1)
-            .frame(height: 14)
+            .frame(height: 12)
+    }
+
+    @ViewBuilder
+    private func oledBarsRow(level: Int) -> some View {
+        HStack(alignment: .bottom, spacing: 2) {
+            ForEach(0..<4, id: \.self) { i in
+                let filled = i < level
+                let h: CGFloat = CGFloat(3 + i * 2)
+                Rectangle()
+                    .stroke(Color.white, lineWidth: 1)
+                    .background(filled ? Color.white : Color.clear)
+                    .frame(width: 5, height: h)
+            }
+        }
+        .frame(height: 12, alignment: .bottom)
     }
 }
 

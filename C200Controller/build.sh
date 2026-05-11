@@ -49,9 +49,9 @@ cat > "$CONTENTS/Info.plist" << 'EOF'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.28</string>
+    <string>1.1.0</string>
     <key>CFBundleVersion</key>
-    <string>27</string>
+    <string>38</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>
@@ -106,5 +106,7 @@ echo ""
 echo "Build complete: $APP_BUNDLE"
 echo ""
 
-# Open the app
-open "$APP_BUNDLE"
+# Open the app unless SKIP_OPEN is set (e.g. during a release build)
+if [ -z "$SKIP_OPEN" ]; then
+    open "$APP_BUNDLE"
+fi

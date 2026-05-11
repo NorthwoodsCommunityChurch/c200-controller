@@ -85,6 +85,12 @@ struct TallySettingsView: View {
                         .foregroundColor(.secondary)
                         .frame(width: 36, alignment: .trailing)
                 }
+
+                HStack {
+                    Toggle("Swap Program/Preview", isOn: $cameraManager.tslSwapProgramPreview)
+                        .help("Enable if PVW shows as PGM (and vice versa) — for switchers like Ross Ultrix or Roland that invert the TSL T1/T2 bit assignment.")
+                    Spacer()
+                }
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor))

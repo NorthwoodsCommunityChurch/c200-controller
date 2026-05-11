@@ -32,9 +32,17 @@ class CameraManager: ObservableObject {
 
     // TSL tally support
     @Published var tslEnabled = false
-    @Published var tslPort: UInt16 = 5201
+    // Default 5200 to match the Ross Ultrix Carbonite at Northwoods. Users can
+    // override per-deployment in Tally Settings.
+    @Published var tslPort: UInt16 = 5200
     @Published var tslListening = false       // port is bound and accepting
     @Published var tslClientConnected = false // a switcher is actively connected
+    // Some switchers (Ross Ultrix in some configs, certain Roland models) swap the
+    // T1/T2 bit assignment relative to the BBC/ATEM/vMix convention we default to.
+    // When true, we invert isProgram/isPreview as packets arrive.
+    @Published var tslSwapProgramPreview: Bool {
+        didSet { UserDefaults.standard.set(tslSwapProgramPreview, forKey: "tsl_swap_pgm_pvw") }
+    }
     private var tslClient: TSLClient?
 
     // Tracks the TSL-intended state per index so we can periodically re-send
@@ -52,6 +60,12 @@ class CameraManager: ObservableObject {
     private let persistenceKey = "known_cameras_v2"
     private let autoReconnectKey = "auto_reconnect_enabled"
 
+    // Single long-lived URLSession for manager-level HTTP (discovery, manual add, positions push).
+    // URLSession(configuration:) retains its delegate forever unless invalidated, so creating one
+    // per call leaks them and eventually triggers CFNetwork loader-thread races. Per-call timeouts
+    // go on URLRequest.timeoutInterval, not the session config.
+    private let session: URLSession = URLSession(configuration: .default)
+
     struct DiscoveredESP32: Identifiable {
         let id: String          // MAC address
         let name: String        // mDNS name
@@ -59,7 +73,11 @@ class CameraManager: ObservableObject {
     }
 
     init() {
-        // Load auto-reconnect setting
+        // Auto-reconnect: default ON for new installs. Migration for existing users whose
+        // key was never set (bool(forKey:) returns false by default) — set it to true explicitly.
+        if UserDefaults.standard.object(forKey: autoReconnectKey) == nil {
+            UserDefaults.standard.set(true, forKey: autoReconnectKey)
+        }
         self.autoReconnect = UserDefaults.standard.bool(forKey: autoReconnectKey)
 
         // Restore TSL settings
@@ -68,6 +86,7 @@ class CameraManager: ObservableObject {
         if savedPort > 0 && savedPort <= 65535 {
             tslPort = UInt16(savedPort)
         }
+        tslSwapProgramPreview = UserDefaults.standard.bool(forKey: "tsl_swap_pgm_pvw")
 
         loadCameras()
         startBonjourDiscovery()
@@ -95,6 +114,7 @@ class CameraManager: ObservableObject {
 
     deinit {
         browser?.cancel()
+        session.invalidateAndCancel()
     }
 
     // MARK: - Persistence
@@ -185,15 +205,14 @@ class CameraManager: ObservableObject {
     func addESP32Manually(ip: String) {
         guard !ip.isEmpty else { return }
 
-        Task {
+        Task { [session] in
             // Try to fetch status to get the ESP ID
             let url = URL(string: "http://\(ip)/api/status")!
-            let config = URLSessionConfiguration.default
-            config.timeoutIntervalForRequest = 5
-            let session = URLSession(configuration: config)
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 5
 
             do {
-                let (data, _) = try await session.data(from: url)
+                let (data, _) = try await session.data(for: request)
                 if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                    let espId = json["esp_id"] as? String {
                     let name = json["esp_name"] as? String ?? "ESP32"
@@ -299,14 +318,13 @@ class CameraManager: ObservableObject {
     }
 
     private func fetchESP32Info(name: String, ip: String) {
-        Task {
+        Task { [session] in
             let url = URL(string: "http://\(ip)/api/status")!
-            let config = URLSessionConfiguration.default
-            config.timeoutIntervalForRequest = 3
-            let session = URLSession(configuration: config)
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 3
 
             do {
-                let (data, _) = try await session.data(from: url)
+                let (data, _) = try await session.data(for: request)
                 if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                    let espId = json["esp_id"] as? String {
                     let espName = json["esp_name"] as? String ?? name
@@ -433,21 +451,29 @@ class CameraManager: ObservableObject {
         }
     }
 
-    private func handleTallyUpdate(index: Int, isProgram: Bool, isPreview: Bool) {
+    private func handleTallyUpdate(index: Int, isProgram rawProgram: Bool, isPreview rawPreview: Bool) {
         // Find cameras with this TSL index in their assigned indices
         let matchingCameras = cameras.filter { $0.tslIndices.contains(index) }
 
         guard !matchingCameras.isEmpty else { return }
 
-        appLog("TSL update: index=\(index), program=\(isProgram), preview=\(isPreview) → \(matchingCameras.count) camera(s)")
+        // Apply user-configured tally bit swap (Ross Ultrix and some Roland configs)
+        let isProgram = tslSwapProgramPreview ? rawPreview : rawProgram
+        let isPreview = tslSwapProgramPreview ? rawProgram : rawPreview
+
+        appLog("TSL update: index=\(index), program=\(isProgram), preview=\(isPreview)\(tslSwapProgramPreview ? " (swapped)" : "") → \(matchingCameras.count) camera(s)")
 
         // Store intended state for this index so the refresh timer can re-send it
         tslState[index] = (program: isProgram, preview: isPreview)
 
-        // Send immediately
+        // Send immediately. withBrightness:false — brightness is already set on the
+        // ESP32 from the WS-connect restore path (Camera.swift), so re-sending it on
+        // every cut just doubles HTTP traffic and creates cancellation races during
+        // fast cut sequences. Result was visible flicker (PGM → off → PVW between
+        // states) on Ross-style auto-PVW transitions.
         for camera in matchingCameras {
             if let state = cameraStates[camera.id] {
-                state.updateTallyState(program: isProgram, preview: isPreview)
+                state.updateTallyState(program: isProgram, preview: isPreview, withBrightness: false)
             }
         }
 
@@ -463,8 +489,8 @@ class CameraManager: ObservableObject {
     // MARK: - Tally Refresh Timer
 
     private func startTallyRefreshTimer() {
-        guard tallyRefreshTimer == nil else { return }
-        tallyRefreshTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in
+        tallyRefreshTimer?.invalidate()
+        tallyRefreshTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in self?.resendActiveTally() }
         }
     }
@@ -474,8 +500,11 @@ class CameraManager: ObservableObject {
         tallyRefreshTimer = nil
     }
 
-    /// Re-sends the current TSL-intended tally state to all cameras.
-    /// Called every 2.5s to recover from dropped WiFi packets.
+    /// Re-asserts the current TSL-intended tally state to each camera every 250 ms
+    /// while any tally is active. Tally over HTTP-POST has no built-in retransmit,
+    /// so periodic re-assertion is how we recover from a dropped packet. The
+    /// matching dedup in `CameraState.updateTallyState` ensures a tick that finds
+    /// the same state already in flight is a no-op, not a cancel-and-restart.
     private func resendActiveTally() {
         for camera in cameras {
             let program = camera.tslIndices.contains { tslState[$0]?.program == true }
@@ -535,11 +564,7 @@ class CameraManager: ObservableObject {
         let operatorName = fullName.components(separatedBy: " ").first ?? fullName
         let lens = assignment?.lenses.first ?? ""
 
-        Task {
-            let config = URLSessionConfiguration.default
-            config.timeoutIntervalForRequest = 3
-            let session = URLSession(configuration: config)
-
+        Task { [session] in
             guard let url = URL(string: "http://\(ip)/api/display") else { return }
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
