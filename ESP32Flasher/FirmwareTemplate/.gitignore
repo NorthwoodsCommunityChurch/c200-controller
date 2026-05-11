@@ -1,0 +1,23 @@
+# Local WiFi credentials — NEVER commit
+# (copy wifi_config.example.h to wifi_config.h and fill in your network)
+main/wifi_config.h
+
+# Backup / scratch files
+*.backup
+*.bak
+
+# ESP-IDF build artifacts
+build/
+.cache/
+managed_components/
+dependencies.lock
+sdkconfig.old
+sdkconfig.ci
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp

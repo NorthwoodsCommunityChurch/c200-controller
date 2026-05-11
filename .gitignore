@@ -31,8 +31,21 @@ build/
 Open\ Claude.command
 start-claude-team.sh
 
-# ESP32Flasher — separate project/repo, not part of this repo
-ESP32Flasher/
+# ESP32Flasher GUI app — separate project, not tracked here.
+# Firmware source IS tracked. Git can't re-include a child of an ignored
+# directory by negation, so the un-ignore pattern needs `**` to match
+# everything inside the firmware tree.
+ESP32Flasher/*
+!ESP32Flasher/FirmwareTemplate
+!ESP32Flasher/FirmwareTemplate/**
+
+# Firmware build artifacts + local-only credentials inside the tracked firmware tree
+ESP32Flasher/FirmwareTemplate/build/
+ESP32Flasher/FirmwareTemplate/.cache/
+ESP32Flasher/FirmwareTemplate/managed_components/
+ESP32Flasher/FirmwareTemplate/dependencies.lock
+ESP32Flasher/FirmwareTemplate/sdkconfig.old
+ESP32Flasher/FirmwareTemplate/main/wifi_config.h
 
 # Large binary files (datasheets, etc.)
 *.pdf
