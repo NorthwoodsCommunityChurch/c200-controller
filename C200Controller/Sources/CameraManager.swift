@@ -33,21 +33,29 @@ class CameraManager: ObservableObject {
     // TSL tally support
     @Published var tslEnabled = false
     // Default 5200 to match the Ross Ultrix Carbonite at Northwoods. Users can
-    // override per-deployment in Tally Settings.
-    @Published var tslPort: UInt16 = 5200
+    // override per-deployment in Tally Settings. In v1.2+ boards listen
+    // directly on this port for the switcher's TSL feed.
+    @Published var tslPort: UInt16 = 5200 {
+        didSet {
+            guard tslPort != oldValue else { return }
+            UserDefaults.standard.set(Int(tslPort), forKey: "tsl_port")
+            pushTslConfigToAll()
+        }
+    }
     @Published var tslListening = false       // port is bound and accepting
     @Published var tslClientConnected = false // a switcher is actively connected
     // Some switchers (Ross Ultrix in some configs, certain Roland models) swap the
     // T1/T2 bit assignment relative to the BBC/ATEM/vMix convention we default to.
-    // When true, we invert isProgram/isPreview as packets arrive.
+    // When true, we invert isProgram/isPreview as packets arrive AND we tell the
+    // boards to do the same so the LED matches the tile.
     @Published var tslSwapProgramPreview: Bool {
-        didSet { UserDefaults.standard.set(tslSwapProgramPreview, forKey: "tsl_swap_pgm_pvw") }
+        didSet {
+            guard tslSwapProgramPreview != oldValue else { return }
+            UserDefaults.standard.set(tslSwapProgramPreview, forKey: "tsl_swap_pgm_pvw")
+            pushTslConfigToAll()
+        }
     }
     private var tslClient: TSLClient?
-
-    // Tracks the TSL-intended state per index so we can periodically re-send
-    private var tslState: [Int: (program: Bool, preview: Bool)] = [:]
-    private var tallyRefreshTimer: Timer?
 
     // Camera Positions integration
     @Published var positionsEnabled = false
@@ -143,6 +151,7 @@ class CameraManager: ObservableObject {
         state.onConnected = { [weak self, cameraID = camera.id] in
             guard let self, let current = self.cameras.first(where: { $0.id == cameraID }) else { return }
             self.pushPositionsToESP32(camera: current)
+            self.pushTslConfigToESP32(camera: current)
         }
         return state
     }
@@ -434,87 +443,71 @@ class CameraManager: ObservableObject {
         tslEnabled = false
         tslListening = false
         tslClientConnected = false
-        tslState.removeAll()
-        stopTallyRefreshTimer()
+        clearAllTally()
         UserDefaults.standard.set(false, forKey: "tsl_enabled")
     }
 
     private func clearAllTally() {
-        // Clear all stored TSL state and stop the refresh timer
-        tslState.removeAll()
-        stopTallyRefreshTimer()
-
+        // Clears the dashboard's tile indicators when the switcher disconnects.
+        // The board LEDs are driven by their own TSL listeners now; if Ross is
+        // truly gone, they'll see no packets and hold last state until reboot
+        // (no false-amber per phase 1 watchdog change).
         for camera in cameras {
-            if let state = cameraStates[camera.id] {
-                state.updateTallyState(program: false, preview: false)
-            }
+            cameraStates[camera.id]?.updateTallyState(program: false, preview: false)
         }
     }
 
+    /// Dashboard-side TSL handler. In v1.2+ this only updates the tile UI —
+    /// boards listen to TSL directly and apply LED state themselves. We still
+    /// listen here so the dashboard can show what the switcher is sending
+    /// (monitoring), and so swap-toggle changes are reflected in the tile
+    /// instantly even before the boards have a chance to re-read NVS.
     private func handleTallyUpdate(index: Int, isProgram rawProgram: Bool, isPreview rawPreview: Bool) {
-        // Find cameras with this TSL index in their assigned indices
         let matchingCameras = cameras.filter { $0.tslIndices.contains(index) }
-
         guard !matchingCameras.isEmpty else { return }
 
-        // Apply user-configured tally bit swap (Ross Ultrix and some Roland configs)
         let isProgram = tslSwapProgramPreview ? rawPreview : rawProgram
         let isPreview = tslSwapProgramPreview ? rawProgram : rawPreview
 
         appLog("TSL update: index=\(index), program=\(isProgram), preview=\(isPreview)\(tslSwapProgramPreview ? " (swapped)" : "") → \(matchingCameras.count) camera(s)")
 
-        // Store intended state for this index so the refresh timer can re-send it
-        tslState[index] = (program: isProgram, preview: isPreview)
-
-        // Send immediately. withBrightness:false — brightness is already set on the
-        // ESP32 from the WS-connect restore path (Camera.swift), so re-sending it on
-        // every cut just doubles HTTP traffic and creates cancellation races during
-        // fast cut sequences. Result was visible flicker (PGM → off → PVW between
-        // states) on Ross-style auto-PVW transitions.
         for camera in matchingCameras {
-            if let state = cameraStates[camera.id] {
-                state.updateTallyState(program: isProgram, preview: isPreview, withBrightness: false)
-            }
-        }
-
-        // Keep refresh timer running while any tally is active
-        let anyActive = tslState.values.contains { $0.program || $0.preview }
-        if anyActive {
-            startTallyRefreshTimer()
-        } else {
-            stopTallyRefreshTimer()
+            cameraStates[camera.id]?.updateTallyState(program: isProgram, preview: isPreview)
         }
     }
 
-    // MARK: - Tally Refresh Timer
+    // MARK: - Board TSL Config Push
 
-    private func startTallyRefreshTimer() {
-        tallyRefreshTimer?.invalidate()
-        tallyRefreshTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.resendActiveTally() }
-        }
+    /// Sends the current TSL configuration to one board. Called on every WS
+    /// handshake (via `state.onConnected`) so a freshly-rebooted board self-heals
+    /// without any operator action.
+    private func pushTslConfigToESP32(camera: Camera) {
+        guard let state = cameraStates[camera.id] else { return }
+        // Firmware supports a single tally index per board. If the user has
+        // configured multiple indices for one camera, the first one wins; the
+        // dashboard's tile UI still ORs across all of them for visual purposes.
+        let primaryIndex = camera.tslIndices.sorted().first ?? 0
+        state.sendTslConfig(index: primaryIndex,
+                            port: tslPort,
+                            swap: tslSwapProgramPreview)
     }
 
-    private func stopTallyRefreshTimer() {
-        tallyRefreshTimer?.invalidate()
-        tallyRefreshTimer = nil
-    }
-
-    /// Re-asserts the current TSL-intended tally state to each camera every 250 ms
-    /// while any tally is active. Tally over HTTP-POST has no built-in retransmit,
-    /// so periodic re-assertion is how we recover from a dropped packet. The
-    /// matching dedup in `CameraState.updateTallyState` ensures a tick that finds
-    /// the same state already in flight is a no-op, not a cancel-and-restart.
-    private func resendActiveTally() {
+    /// Pushes current TSL config to every connected board. Called when the user
+    /// changes the global port or swap setting in Tally Settings.
+    private func pushTslConfigToAll() {
         for camera in cameras {
-            let program = camera.tslIndices.contains { tslState[$0]?.program == true }
-            let preview = camera.tslIndices.contains { tslState[$0]?.preview == true }
-            guard program || preview else { continue }
-
-            if let state = cameraStates[camera.id] {
-                state.updateTallyState(program: program, preview: preview, withBrightness: false)
-            }
+            pushTslConfigToESP32(camera: camera)
         }
+    }
+
+    /// Updates a camera's TSL index assignment and pushes the new config to
+    /// the corresponding board. Single entry point used by the Tally Settings
+    /// UI so the index change and the board push can't get out of sync.
+    func setTslIndices(for cameraId: String, indices: [Int]) {
+        guard let idx = cameras.firstIndex(where: { $0.id == cameraId }) else { return }
+        cameras[idx].tslIndices = indices
+        saveCameras()
+        pushTslConfigToESP32(camera: cameras[idx])
     }
 
     // MARK: - Camera Positions Integration

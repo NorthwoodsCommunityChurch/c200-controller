@@ -122,17 +122,10 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     private var webSocketTask: URLSessionWebSocketTask?
     private var webSocketReconnectTask: Task<Void, Never>?
     private var wsPingTimer: Timer?          // periodic ping to detect zombie connections
-    private var currentTallyTask: Task<Void, Never>?  // cancels stale tally commands on rapid cuts
-    // Target state currently in flight to the ESP32. Used to deduplicate the 250ms
-    // refresh hits: if a refresh tick arrives carrying the same (program, preview)
-    // that's already mid-POST, we let the in-flight request finish rather than
-    // cancelling and restarting. The earlier cancel-on-every-tick caused requests
-    // with rtt > 250ms to be killed before they could complete — never landing.
-    private var inflightTarget: (program: Bool, preview: Bool)?
-    // Some switchers (Ross Ultrix) send transient OFF packets between PGM and an
-    // auto-PVW that follows on the next cut. Applying those OFFs immediately makes
-    // the LED flicker dark for ~50 ms during fast cut sequences. Deferring OFF by
-    // 150 ms absorbs those transients while staying invisibly fast for genuine offs.
+    // OFF debounce for the *tile* indicator only — mirrors the firmware-side
+    // Ross transient-OFF absorber so the dashboard tile stays in sync with the
+    // physical LED. The board owns the actual tally LED in v1.2+; this only
+    // affects the dashboard's monitoring view.
     private var pendingOffTask: Task<Void, Never>?
     private let session: URLSession
     private var cameraCookies: String = ""
@@ -154,7 +147,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         wsPingTimer?.invalidate()
         webSocketTask?.cancel(with: .normalClosure, reason: nil)
         webSocketReconnectTask?.cancel()
-        currentTallyTask?.cancel()
+        pendingOffTask?.cancel()
     }
 
     // MARK: - Connection
@@ -254,7 +247,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         webSocketReconnectTask = nil
         wsPingTimer?.invalidate()
         wsPingTimer = nil
-        currentTallyTask?.cancel()
+        pendingOffTask?.cancel()
         reconnectTimer?.invalidate()
         reconnectTimer = nil
         isConnected = false
@@ -1008,24 +1001,15 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
 
     // MARK: - Tally Control
 
-    /// Synchronous entry point — cancels any in-flight tally task before starting a new one.
-    /// This prevents stale commands from winning on rapid TSL cuts.
-    ///
-    /// Tile indicators (dots, back-OLED) bind to `tallyProgram` / `tallyPreview` and are
-    /// updated IMMEDIATELY here — the UI reflects app intent, not ESP32 round-trip feedback.
-    ///
-    /// Program always wins over preview — some switchers (ATEM) briefly send both true
-    /// during a cut. The ESP32 command resolves to "program" in that case; the tile dots
-    /// must mirror that resolution so UI and physical LED stay consistent.
-    func updateTallyState(program: Bool, preview: Bool, withBrightness: Bool = true) {
+    /// Updates the tile's tally indicators (dots, back-OLED tint). In v1.2+ the
+    /// physical LED is driven by the board's own TSL listener, not by the
+    /// dashboard — this method no longer makes any HTTP call. Program wins
+    /// over preview, and a 150 ms OFF debounce mirrors the firmware so the tile
+    /// view stays in sync with the LED during Ross's transient-OFF cut sequences.
+    func updateTallyState(program: Bool, preview: Bool) {
         let resolvedProgram = program
         let resolvedPreview = preview && !program
 
-        // Any new packet cancels a pending OFF debounce. If this packet is itself an
-        // OFF following an active state, schedule a deferred apply instead of cutting
-        // the LED immediately — Ross emits a transient OFF between PGM and the
-        // auto-PVW that follows the next cut, and that <50 ms blip is what makes the
-        // tile flicker during fast cut sequences.
         pendingOffTask?.cancel()
         pendingOffTask = nil
 
@@ -1038,82 +1022,36 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
                 guard !Task.isCancelled, let self else { return }
                 self.tallyProgram = false
                 self.tallyPreview = false
-                self.currentTallyTask?.cancel()
-                self.currentTallyTask = Task {
-                    await self.doUpdateTallyState(program: false, preview: false, withBrightness: false)
-                }
             }
             return
         }
 
         tallyProgram = resolvedProgram
         tallyPreview = resolvedPreview
-
-        // Deduplicate against the in-flight request. If a request for this exact
-        // state is already in flight (refresh tick re-asserting the same target),
-        // let it finish — don't cancel and restart. Only the state-change path
-        // needs to interrupt.
-        if inflightTarget?.program == resolvedProgram && inflightTarget?.preview == resolvedPreview {
-            return
-        }
-
-        currentTallyTask?.cancel()
-        inflightTarget = (resolvedProgram, resolvedPreview)
-        let target = (resolvedProgram, resolvedPreview)
-        currentTallyTask = Task { [weak self] in
-            guard let self else { return }
-            await self.doUpdateTallyState(program: target.0, preview: target.1, withBrightness: withBrightness)
-            // Clear only if our target is still the one in flight — a newer
-            // state-change call may have replaced inflightTarget while we ran.
-            if self.inflightTarget?.program == target.0 && self.inflightTarget?.preview == target.1 {
-                self.inflightTarget = nil
-            }
-        }
     }
 
-    /// - withBrightness: Send brightness before the tally command (only needed on the
-    ///   initial activation, not on periodic re-sends where brightness is already set).
-    private func doUpdateTallyState(program: Bool, preview: Bool, withBrightness: Bool) async {
-        // UI indicators already updated in updateTallyState (intent-based). For direct-connection
-        // cameras there's no ESP32 to POST to, so just return.
-        guard camera.connectionType == .esp32 else { return }
-
-        let command = program ? "program" : (preview ? "preview" : "off")
-
-        // On initial activation, await the brightness POST BEFORE sending tally. If we fire
-        // them concurrently, the tally LED lights up at the ESP32's boot default (255 = 100%)
-        // and only dims once the brightness command arrives milliseconds later — a visible
-        // first-cut flash. Timeout 0.4 s so a slow/bad brightness send doesn't stall tally
-        // forever; worst-case first-cut total is ~0.8 s, refresh timer catches any miss.
-        if withBrightness && (program || preview) {
-            guard !Task.isCancelled else { return }
-            let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
-            let pct = savedPct == 0 ? 1 : savedPct
-            let esp32Value = Int(Double(pct) / 100.0 * 255.0)
-            await sendBrightness(esp32Value)
-        }
-
-        // 1.0 s timeout tolerates real WiFi jitter in a packed room (RTTs of
-        // 500–900 ms aren't unusual on contended 2.4 GHz). A single retry on
-        // genuine timeout — not on cancellation — catches transient packet loss
-        // without looping forever against a board that's actually gone.
-        guard !Task.isCancelled else { return }
-        let started = Date()
-        var request = URLRequest(url: URL(string: "http://\(camera.ip)/api/tally/\(command)")!)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 1.0
-        do {
-            do {
-                _ = try await session.data(for: request)
-            } catch let urlErr as URLError where urlErr.code == .timedOut {
-                guard !Task.isCancelled else { return }
-                _ = try await session.data(for: request)
+    /// Sends a tsl_config WebSocket frame to the board telling it which TSL
+    /// index to listen for, what port the switcher is sending on, and whether
+    /// the program/preview bits are swapped. Board persists to NVS and applies
+    /// immediately. Fire-and-forget; caller is expected to re-send on every
+    /// WS handshake so a freshly-rebooted (or factory-reset) board self-heals.
+    func sendTslConfig(index: Int, port: UInt16, swap: Bool) {
+        guard let task = webSocketTask else { return }
+        let payload: [String: Any] = [
+            "type": "tsl_config",
+            "index": index,
+            "port": Int(port),
+            "swap": swap
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let text = String(data: data, encoding: .utf8) else { return }
+        let name = camera.name
+        task.send(.string(text)) { error in
+            if let error {
+                appLog("WS tsl_config send error for \(name): \(error.localizedDescription)")
+            } else {
+                appLog("WS tsl_config sent to \(name): index=\(index) port=\(port) swap=\(swap)")
             }
-            let rtt = Int(Date().timeIntervalSince(started) * 1000)
-            appLog("CMD cam=\(camera.name) kind=tally arg=\(command) rtt_ms=\(rtt) outcome=ok")
-        } catch {
-            let rtt = Int(Date().timeIntervalSince(started) * 1000)
-            appLog("CMD cam=\(camera.name) kind=tally arg=\(command) rtt_ms=\(rtt) outcome=fail:\(error)")
         }
     }
 

@@ -290,11 +290,8 @@ struct CameraTallyRow: View {
                 TSLIndexPicker(selectedIndices: Binding(
                     get: { selectedIndices },
                     set: { newIndices in
-                        if let idx = cameraManager.cameras.firstIndex(where: { $0.id == camera.id }) {
-                            cameraManager.cameras[idx].tslIndices = newIndices
-                            cameraManager.saveCameras()
-                            appLog("Updated TSL indices for \(camera.name): \(newIndices.sorted())")
-                        }
+                        cameraManager.setTslIndices(for: camera.id, indices: newIndices)
+                        appLog("Updated TSL indices for \(camera.name): \(newIndices.sorted())")
                     }
                 ))
             }

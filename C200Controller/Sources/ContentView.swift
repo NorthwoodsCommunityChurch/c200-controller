@@ -1034,10 +1034,7 @@ struct TileTallySection: View {
                         TSLIndexPicker(selectedIndices: Binding(
                             get: { tslIndices },
                             set: { newIndices in
-                                if let idx = cameraManager.cameras.firstIndex(where: { $0.id == camera.id }) {
-                                    cameraManager.cameras[idx].tslIndices = newIndices
-                                    cameraManager.saveCameras()
-                                }
+                                cameraManager.setTslIndices(for: camera.id, indices: newIndices)
                             }
                         ))
                     }
