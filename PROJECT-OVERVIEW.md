@@ -277,49 +277,54 @@ CameraPreset
 
 ### Tally System (TSL)
 
-The dashboard receives TSL UMD protocol packets from video switchers and controls RGB LEDs on each ESP32 bridge.
+**Architecture changed in v1.2.0.** Each ESP32 board now listens directly to the switcher's TSL feed and drives its own LED. The dashboard is no longer in the tally critical path — it pushes configuration to boards over WebSocket and listens to TSL itself only to render the on-screen tile indicators.
 
 #### Architecture
 
 ```
-ATEM Switcher
-  ↓ TSL UMD TCP packets → port 5201
-TSLClient.swift (TCP listener)
-  ↓ parsed tally state per index
-CameraManager.swift (matches index → cameras)
-  ↓ HTTP POST
-ESP32 /api/tally/{state}
-  ↓ PWM
-RGB LED (GPIO 1 = red, GPIO 2 = green)
-  ↓ Broadcasts via WebSocket
-Dashboard tally border on camera tile
+Ross Ultrix Carbonite
+  │ TSL UMD TCP packets → port 5200, one output per destination
+  ├─→ ESP32 board 1  ─┐
+  ├─→ ESP32 board 2   │  each board parses, filters by its
+  ├─→ ESP32 board 3   │  configured tsl_index, applies LED
+  ├─→ ESP32 board 4   │  (program/preview/off via LEDC PWM)
+  ├─→ ESP32 board 5  ─┘
+  └─→ C200Controller.app  (tile UI rendering + config push)
+                        │
+                        └─→ ESP32 /ws  {"type":"tsl_config","index":N,"port":P,"swap":B}
 ```
+
+If the Mac is offline mid-service, the LEDs keep working. If a board reboots, the dashboard re-pushes its TSL config on the next WS handshake — self-healing.
 
 #### TSL Protocol Support
 
 - **TSL UMD 3.1** — 18-byte fixed format, most common
 - **TSL UMD 5.0** — variable length, newer format
-- **TCP only** on port 5201 (configurable in Tally Settings)
+- **TCP** on port 5200 by default (matches the Ross Ultrix Carbonite at Northwoods); configurable in Tally Settings (⌘⇧T)
 - Automatic protocol detection based on packet structure
+- Implemented in C in `ESP32Flasher/FirmwareTemplate/main/main.c` (`tsl_parse_one`, `tsl_apply_state`, `tsl_listener_task`) and in Swift in `C200Controller/Sources/TSLClient.swift`
 
 #### Camera Assignment
 
-Each camera can have one or more TSL indices assigned (1–127). Configured via multi-select popover in Tally Settings (⌘⇧T).
+Each camera has exactly one TSL index (1–127, or 0 = unassigned). Configured via single-select popover in Tally Settings (⌘⇧T) or on each camera tile. v1.2.1 removed multi-index assignment — the firmware never supported it.
 
-- Multiple cameras can share the same index (both light up)
-- A single camera can respond to multiple indices
+The dashboard sends `{"type":"tsl_config","index":N,"port":P,"swap":B}` over the existing `/ws` WebSocket; the board persists to NVS (`tally_cfg` namespace) and immediately restarts its TSL listener with the new settings.
+
+#### Switcher Configuration
+
+The Ross Ultrix Carbonite (or any TSL-emitting switcher) must be configured with one TSL output per board IP, plus one for the dashboard itself. At Northwoods that's six destinations total — five boards + director Mac (`10.11.1.104`) — all on port 5200.
+
+See [docs/ESP32-INVENTORY.md](docs/ESP32-INVENTORY.md) for the current board IPs and MACs.
 
 #### State Logic
 
-Program always wins over preview. If `program == true`, "program" is sent regardless of preview — avoids the brief amber flash from switchers (like ATEM) that momentarily send both states true during a cut.
+Both the firmware and the dashboard apply **program-wins** resolution: if T1 (program) is set, the LED is red regardless of T2 (preview). This handles Ross's PGM packet which sets T1+T2 because Ross considers "currently visible" to include preview.
 
-**Tally re-send timer:** Every 2.5 seconds while any camera is live, the current tally state is re-sent to all affected ESP32 boards. This handles ESP32 reboots and ensures LEDs stay in sync.
+**150 ms OFF debounce.** Ross emits a transient OFF packet between a camera leaving PGM and the auto-PVW that follows the next cut. Without debouncing, the LED visibly flickers dark during fast cut sequences. The firmware and the dashboard both defer OFF by 150 ms; if a new active state arrives within that window, the pending OFF is cancelled.
 
 #### LED Brightness
 
-Global brightness slider (1–100%) in Tally Settings maps to PWM value 0–255. Sent to all ESP32s via `/api/tally/brightness/{value}`. Brightness is always sent BEFORE the tally state command to prevent a 100%-flash on ESP32 reboot.
-
-Persisted in UserDefaults (`tally_brightness`). Restored when each ESP32 connects.
+Global brightness slider (1–100%) in Tally Settings maps to PWM value 0–255. Set via `/api/tally/brightness/{value}` and persisted in UserDefaults (`tally_brightness`). Brightness is re-sent on every WS reconnect so a board that just rebooted comes back at the correct intensity.
 
 #### TSL Status Indicator (Header Bar)
 
@@ -375,20 +380,21 @@ The app uses Sparkle 2 for macOS auto-updates delivered via GitHub Pages.
 **Source:** [ESP32Flasher/FirmwareTemplate/main/main.c](ESP32Flasher/FirmwareTemplate/main/main.c) (~98 KB, ~3,000 lines)
 
 The firmware runs on the ESP32-S3 and manages:
-- Dual-stack networking (WiFi + Ethernet)
+- Dual-stack networking (WiFi + Ethernet) with infinite reconnect and 30 s self-reboot if WiFi is down while Ethernet is up
+- WiFi modem-sleep disabled (`WIFI_PS_NONE`) for stable RTT under contended 2.4 GHz
 - HTTP/REST API server for camera control (relay to Canon)
-- WebSocket server for push state updates to dashboard
-- TSL tally LED control via LEDC PWM
+- WebSocket server for push state updates to dashboard + inbound `tsl_config` messages
+- **TSL UMD listener** on a configurable TCP port (default 5200) — filters by board's configured tally index, applies program-wins + 150 ms OFF debounce, drives LED
+- NVS-persisted tally config (`tally_cfg` namespace: index, port, swap)
 - OLED display (SSD1306, 128×32)
 - OTA firmware update reception
 - mDNS advertisement for Bonjour discovery
-- Tally watchdog (auto-off after 8s with no command)
 
 **Key compile-time constants:**
 
 | Constant | Value | Notes |
 |----------|-------|-------|
-| `FIRMWARE_VERSION` | `"1.0.14"` | Reported in `/api/status` |
+| `FIRMWARE_VERSION` | `"1.2.0"` | Reported in `/api/status` |
 | `WIFI_SSID` | `"Northwoods - Production"` | |
 | `WIFI_PASSWORD` | `"Ah7eFLoJ"` | |
 | `CAMERA_IP` | `"1.1.1.2"` | Canon C200 Ethernet IP |
@@ -504,7 +510,7 @@ ESP32 GPIO 2 → 220Ω resistor → Green LED → GND  (Preview)
 
 - LEDC timer 0, channels 0 (red) and 1 (green)
 - 8-bit resolution (0–255), 1000 Hz frequency
-- **Tally watchdog:** If no tally command received for 8 seconds (`TALLY_WATCHDOG_MS 8000`), both LEDs are automatically turned off. Tracked via `last_tally_command_us` (int64_t).
+- **Tally watchdog (v1.1.0+):** 8 s no-command threshold is logged only — the LED is no longer touched. The earlier amber-on-watchdog behavior was actively misleading on degraded WiFi and was removed.
 
 ### Network Configuration
 
@@ -764,6 +770,11 @@ See [SECURITY.md](SECURITY.md) for full security review.
 
 | Version | Build | Changes |
 |---------|-------|---------|
+| 1.2.1 | 40 | Single-index UI — collapsed tslIndices array to tslIndex Int (firmware unchanged) |
+| 1.2.0 | 39 | **Phase 2:** boards listen to TSL directly; dashboard out of tally critical path. New firmware TSL listener task, NVS-backed config, WS tsl_config push, single-board self-healing on reconnect. Firmware **1.2.0**. |
+| 1.1.0 | 38 | **Phase 1:** firmware reconnect-forever (MAX_RETRY removed), modem-sleep off, watchdog stops forcing amber. Dashboard cancel-on-state-change only, 1.0 s timeout w/ retry, default TSL port 5200. Firmware **1.1.0**. |
+| 1.0.37 | 36 | Ross transient-OFF 150 ms debounce in dashboard; tally fix for fast cut sequences |
+| 1.0.36 | 35 | Swap Program/Preview toggle (Ross/Roland T1/T2 inversion) |
 | 1.0.28 | 27 | Fix app icon white border |
 | 1.0.27 | 26 | Update app icon (cinema camera, dark navy squircle) |
 | 1.0.26 | 25 | Fix stale "Camera Online" after WebSocket disconnect |
@@ -779,14 +790,17 @@ See [SECURITY.md](SECURITY.md) for full security review.
 | 1.0.16 | 15 | FrontTallyLight (PGM/PVW) on tile front only |
 | 1.0.15 | 14 | Glowing TallyLED dome on tile back; stale isRecording fix |
 
-**Firmware version:** 1.0.14 (tally dead-man switch)
+**Firmware version:** 1.2.0 (TSL listener, NVS config, no false-amber watchdog)
 
 ---
 
 ## 14. Pending Work
 
+- [ ] **Deploy v1.2.x to production** — director Mac updates via Sparkle; flash firmware 1.2.0 to all 5 boards via ⌘⇧U; configure Ross Ultrix with one TSL output per board IP + director on port 5200
+- [ ] **Cam 4 hardware check** — confirm external antenna jumper rework (see memory `external_antenna_jumper.md`) as defense in depth; firmware no longer gives up on reconnect, but RF hygiene still matters
+- [ ] **Validate first production service with phase 2 architecture** — confirm dashboard's `kind=tally` HTTP traffic goes quiet and LEDs track Ross correctly
+- [ ] **Camera.swift decoder cleanup (~2026-05-25)** — remove the legacy `tslIndices` migration branch once every install has launched v1.2.1 (see memory `decoder_cleanup_future.md`)
 - [ ] **Bitfocus Companion module** — skeleton exists in `companion-module/`; needs full implementation
-- [ ] **Production multi-camera testing** — test with 3+ cameras simultaneously in live environment
 - [ ] **Intel Mac testing** — verify build and run on Intel architecture
 - [ ] **README screenshots** — capture and add to `docs/images/`
 - [ ] **Battery percentage display** — researched (ADC voltage divider or IP5306 I2C UPS board); not yet implemented
@@ -856,5 +870,5 @@ bash test_esp32_tally.sh
 
 ---
 
-*Last updated: 2026-03-09*
+*Last updated: 2026-05-11*
 *Repository: NorthwoodsCommunityChurch/c200-controller*
