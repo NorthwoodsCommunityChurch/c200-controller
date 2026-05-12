@@ -156,6 +156,11 @@ targets:
         NSBonjourServices:
           - "_http._tcp"
         UIBackgroundModes: []
+        # The app uses no application-level encryption — all network traffic is
+        # plain HTTP/WS/TCP to local-network boards. This key tells App Store
+        # Connect to auto-mark every build as export-compliance exempt, so we
+        # never see the missing-compliance banner in TestFlight.
+        ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.northwoodschurch.C200Controller.Mobile
