@@ -169,9 +169,5 @@ targets:
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        # To deploy to a real iPad/iPhone, fill in your Apple Developer team ID
-        # (the 10-char string in your account, e.g. "ABC1234DEF"). Find it at
-        # developer.apple.com/account → Membership Details → Team ID.
-        # Once set, regenerate the project with `xcodegen generate` — Xcode will
-        # then auto-sign for your team and TestFlight builds become possible.
-        DEVELOPMENT_TEAM: ""
+        # Aaron Larson's Apple Developer team. Xcode auto-signs for this team.
+        DEVELOPMENT_TEAM: "TQ6Y49W7UW"
