@@ -3,9 +3,31 @@ import SwiftUI
 struct MobileContentView: View {
     @EnvironmentObject var cameraManager: CameraManager
     @EnvironmentObject var presetManager: PresetManager
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    var body: some View {
+        // iPhone (compact) → TabView; iPad (regular) → NavigationSplitView.
+        // Each layout is iOS-native for its form factor instead of one cramming
+        // the other.
+        if sizeClass == .compact {
+            iPhoneTabView()
+                .environmentObject(cameraManager)
+                .environmentObject(presetManager)
+        } else {
+            iPadSplitLayout()
+                .environmentObject(cameraManager)
+                .environmentObject(presetManager)
+        }
+    }
+}
+
+// MARK: - iPad split layout (extracted so iPhone path doesn't pay for it)
+
+struct iPadSplitLayout: View {
+    @EnvironmentObject var cameraManager: CameraManager
+    @EnvironmentObject var presetManager: PresetManager
     @State private var selection: SidebarItem? = .allCameras
     @State private var columnVisibility: NavigationSplitViewVisibility = .doubleColumn
-    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -14,18 +36,9 @@ struct MobileContentView: View {
                 .environmentObject(presetManager)
                 .navigationSplitViewColumnWidth(min: 260, ideal: 280, max: 320)
         } detail: {
-            // On iPad we want the chromeless top — our custom top bar replaces the system nav bar.
-            // On iPhone (compact width) we keep the system nav bar so the sidebar toggle stays reachable.
-            Group {
-                if sizeClass == .compact {
-                    detailView
-                        .navigationBarTitleDisplayMode(.inline)
-                } else {
-                    detailView
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar(.hidden, for: .navigationBar)
-                }
-            }
+            detailView
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar(.hidden, for: .navigationBar)
         }
         .navigationSplitViewStyle(.balanced)
         .background(Theme.bgPrimary)
