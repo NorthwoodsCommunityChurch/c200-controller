@@ -1,0 +1,170 @@
+name: C200Controller
+options:
+  bundleIdPrefix: org.northwoodschurch
+  deploymentTarget:
+    macOS: "13.0"
+    iOS: "17.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.0.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    SWIFT_STRICT_CONCURRENCY: minimal
+
+targets:
+  # =========================================================================
+  # macOS app — replaces build.sh path. Ad-hoc signed, ships via Sparkle.
+  # =========================================================================
+  C200Controller:
+    type: application
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      - path: Sources/Shared
+      - path: Sources/macOS
+      - path: Resources/Assets.xcassets
+      - path: Resources/Generated
+        buildPhase: resources
+    preBuildScripts:
+      - name: Bundle ESP32 firmware (if available)
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          FW_DIR="${SRCROOT}/../ESP32Flasher/FirmwareTemplate"
+          FW_BIN="${FW_DIR}/build/c200_bridge.bin"
+          MAIN_C="${FW_DIR}/main/main.c"
+          DST="${SRCROOT}/Resources/Generated"
+          mkdir -p "${DST}"
+          if [ -f "${FW_BIN}" ]; then
+            cp "${FW_BIN}" "${DST}/c200_bridge.bin"
+            FW_VER=$(grep '#define FIRMWARE_VERSION' "${MAIN_C}" | sed 's/.*"\(.*\)".*/\1/')
+            if [ -n "${FW_VER}" ]; then
+              printf "%s" "${FW_VER}" > "${DST}/firmware_version.txt"
+            fi
+            echo "Bundled firmware ${FW_VER:-unknown}"
+          else
+            echo "warning: firmware bin not found at ${FW_BIN} — OTA will require manual file selection"
+            # Touch placeholders so Xcode doesn't complain about missing files
+            [ -f "${DST}/c200_bridge.bin" ] || touch "${DST}/c200_bridge.bin"
+            [ -f "${DST}/firmware_version.txt" ] || printf "unknown" > "${DST}/firmware_version.txt"
+          fi
+    postBuildScripts:
+      - name: Re-sign Sparkle nested components (inside-out)
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          APP="${TARGET_BUILD_DIR}/${WRAPPER_NAME}"
+          SPARKLE="${APP}/Contents/Frameworks/Sparkle.framework"
+          if [ ! -d "${SPARKLE}" ]; then
+            echo "Sparkle.framework not found — skipping"
+            exit 0
+          fi
+          echo "Re-signing Sparkle inside-out at ${SPARKLE}"
+          # Strip extended attributes that OneDrive / xattr add (those invalidate signatures)
+          xattr -cr "${SPARKLE}"
+          # Sign nested components inside-out with the same adhoc identity ('-')
+          IDENT="${EXPANDED_CODE_SIGN_IDENTITY:--}"
+          # If the identity is empty for any reason, fall back to adhoc
+          [ -z "${IDENT}" ] && IDENT="-"
+          codesign --force --sign "${IDENT}" "${SPARKLE}/Versions/B/XPCServices/Installer.xpc"
+          codesign --force --sign "${IDENT}" "${SPARKLE}/Versions/B/XPCServices/Downloader.xpc"
+          codesign --force --sign "${IDENT}" "${SPARKLE}/Versions/B/Updater.app"
+          codesign --force --sign "${IDENT}" "${SPARKLE}/Versions/B/Autoupdate"
+          codesign --force --sign "${IDENT}" "${SPARKLE}"
+          # Re-sign the outer app so the framework's new signature is registered
+          codesign --force --deep --sign "${IDENT}" "${APP}"
+          echo "Sparkle re-signed with identity '${IDENT}'"
+    info:
+      path: Info-macOS.plist
+      properties:
+        CFBundleName: "C200 Controller"
+        CFBundleDisplayName: "C200 Controller"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        CFBundleIconFile: "AppIcon"
+        LSMinimumSystemVersion: "13.0"
+        NSHighResolutionCapable: true
+        NSLocalNetworkUsageDescription: "C200 Controller needs local network access to communicate with the ESP32 bridge and discover devices via Bonjour."
+        NSBonjourServices:
+          - "_http._tcp"
+        SUPublicEDKey: "VIMxKZmmRokdMcHK5d3QU4+qHgBglmkVFP5aAVvxgqM="
+        SUFeedURL: "https://northwoodscommunitychurch.github.io/app-updates/appcast-c200controller.xml"
+        SUEnableAutomaticChecks: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.northwoodschurch.C200Controller
+        PRODUCT_NAME: C200Controller
+        MARKETING_VERSION: "1.2.1"
+        CURRENT_PROJECT_VERSION: "40"
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        # Hardened runtime + adhoc-signed Sparkle don't mix: dyld rejects the
+        # nested framework with "mapping process and mapped file" at launch.
+        # The original build.sh ships without hardened runtime too.
+        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - package: Sparkle
+
+  # =========================================================================
+  # iOS / iPadOS universal app — TestFlight-distributed, no Sparkle.
+  # =========================================================================
+  C200ControllerMobile:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Sources/Shared
+      - path: Sources/iOS
+    info:
+      path: Info-iOS.plist
+      properties:
+        CFBundleName: "C200 Controller"
+        CFBundleDisplayName: "C200 Controller"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: ""
+        UIRequiredDeviceCapabilities:
+          - armv7
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        "UISupportedInterfaceOrientations~ipad":
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSLocalNetworkUsageDescription: "C200 Controller needs local network access to communicate with the ESP32 bridge and discover cameras via Bonjour."
+        NSBonjourServices:
+          - "_http._tcp"
+        UIBackgroundModes: []
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.northwoodschurch.C200Controller.Mobile
+        PRODUCT_NAME: C200ControllerMobile
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

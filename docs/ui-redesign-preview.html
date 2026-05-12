@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>C200 Controller — iPad / iPhone Redesign</title>
+<meta name="viewport" content="width=1400, initial-scale=1">
+<style>
+  /* ------------------------------------------------------------------ *
+   * Apple-native palette (matches iOS/iPadOS 18 system colors in dark) *
+   * ------------------------------------------------------------------ */
+  :root {
+    --bg-primary:        #000000;
+    --bg-secondary:      #1C1C1E;
+    --bg-tertiary:       #2C2C2E;
+    --bg-grouped:        #1C1C1E;
+    --bg-grouped-2:      #2C2C2E;
+    --bg-sidebar:        rgba(28, 28, 30, 0.78);
+    --bg-card:           rgba(118, 118, 128, 0.12);
+    --bg-card-elevated:  rgba(118, 118, 128, 0.20);
+
+    --label:             rgba(255, 255, 255, 1);
+    --label-2:           rgba(235, 235, 245, 0.60);
+    --label-3:           rgba(235, 235, 245, 0.30);
+    --label-4:           rgba(235, 235, 245, 0.16);
+
+    --sep:               rgba(84, 84, 88, 0.36);
+    --sep-opaque:        rgba(56, 56, 58, 1);
+
+    --accent:            #0A84FF;
+    --accent-tint:       rgba(10, 132, 255, 0.18);
+    --red:               #FF453A;
+    --red-tint:          rgba(255, 69, 58, 0.18);
+    --green:             #30D158;
+    --green-tint:        rgba(48, 209, 88, 0.18);
+    --yellow:            #FFD60A;
+    --orange:            #FF9F0A;
+    --purple:            #BF5AF2;
+    --indigo:            #5E5CE6;
+
+    --radius-s:          8px;
+    --radius-m:          14px;
+    --radius-l:          22px;
+    --radius-xl:         32px;
+
+    --font:              -apple-system, BlinkMacSystemFont, "SF Pro Display",
+                          "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono:         ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Code",
+                          "Roboto Mono", monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: #0a0a0a;
+    color: #fff;
+    padding: 48px 32px;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page-header {
+    max-width: 1400px;
+    margin: 0 auto 40px;
+    text-align: center;
+  }
+  .page-header h1 {
+    font-size: 32px; font-weight: 700; letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .page-header p {
+    color: var(--label-2); font-size: 15px;
+    max-width: 720px; margin: 0 auto;
+  }
+
+  .device-row {
+    display: flex; gap: 48px;
+    align-items: flex-start;
+    justify-content: center;
+    flex-wrap: wrap;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .device-label {
+    text-align: center; margin-bottom: 14px;
+    color: var(--label-2); font-size: 13px;
+    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
+  }
+
+  /* ============================================================== *
+   * IPAD FRAME — 12.9" landscape, scaled to fit page                *
+   * Native res 1366×1024pt; render at 1024×768 here                 *
+   * ============================================================== */
+  .ipad {
+    width: 1024px; height: 768px;
+    background: #1a1a1c;
+    border: 12px solid #2a2a2c;
+    border-radius: 32px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1.5px #000 inset;
+  }
+
+  /* iPad UI body */
+  .ipad-ui {
+    width: 100%; height: 100%;
+    background: var(--bg-primary);
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    overflow: hidden;
+  }
+
+  /* ---------------- Sidebar ---------------- */
+  .sidebar {
+    background: var(--bg-sidebar);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border-right: 0.5px solid var(--sep);
+    padding: 16px 0 12px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-app {
+    padding: 4px 18px 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sidebar-app .logo {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, #0A84FF, #5E5CE6);
+    display: grid; place-items: center;
+    color: #fff;
+  }
+  .sidebar-app .name {
+    font-size: 15px; font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .sidebar-app .build {
+    font-size: 11px; color: var(--label-2); margin-top: 1px;
+  }
+
+  .search {
+    margin: 4px 14px 14px;
+    background: var(--bg-card);
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex; align-items: center; gap: 7px;
+    color: var(--label-2); font-size: 14px;
+  }
+
+  .group-header {
+    font-size: 11px; font-weight: 600;
+    color: var(--label-2);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 10px 22px 6px;
+  }
+
+  .row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 18px 8px 18px;
+    margin: 1px 8px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .row.active { background: var(--bg-card-elevated); }
+  .row.active .row-name { color: var(--label); font-weight: 500; }
+  .row .row-name { flex: 1; color: var(--label); }
+  .row .row-meta { font-size: 11px; color: var(--label-2);
+    font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+
+  /* Tally dot inside row */
+  .row-tally {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--label-4);
+    flex-shrink: 0;
+  }
+  .row-tally.prg { background: var(--red);
+    box-shadow: 0 0 8px rgba(255,69,58,0.7); }
+  .row-tally.pvw { background: var(--green);
+    box-shadow: 0 0 8px rgba(48,209,88,0.5); }
+  .row-tally.off { background: rgba(120,120,128,0.4); }
+
+  .preset-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 18px;
+    margin: 1px 8px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .preset-row svg { color: var(--label-2); flex-shrink: 0; }
+  .preset-row .preset-name { flex: 1; color: var(--label); }
+
+  .sidebar-spacer { flex: 1; }
+  .sidebar-footer {
+    border-top: 0.5px solid var(--sep);
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--label-2);
+  }
+
+  /* ---------------- Detail (Camera Grid) ---------------- */
+  .detail {
+    background: var(--bg-primary);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .toolbar {
+    padding: 14px 24px 12px;
+    display: flex; align-items: center; gap: 14px;
+    border-bottom: 0.5px solid var(--sep);
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+  }
+  .title-block {
+    flex: 1;
+  }
+  .title-large {
+    font-size: 28px; font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .title-sub {
+    font-size: 13px; color: var(--label-2);
+    margin-top: 2px;
+  }
+
+  .pill {
+    height: 28px; padding: 0 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg-card);
+    border-radius: 14px;
+    font-size: 13px; font-weight: 500;
+    color: var(--label);
+  }
+  .pill.recording {
+    background: var(--red-tint);
+    color: var(--red);
+  }
+  .pill.tsl-live {
+    background: var(--green-tint);
+    color: var(--green);
+  }
+  .pill .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: currentColor;
+  }
+  .pill .dot.pulse {
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .icon-btn {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    display: grid; place-items: center;
+    color: var(--label);
+    cursor: pointer;
+  }
+
+  /* Camera grid */
+  .grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    padding: 18px 20px;
+    overflow-y: auto;
+    align-content: start;
+  }
+
+  .card {
+    position: relative;
+    background: var(--bg-card);
+    border-radius: var(--radius-l);
+    padding: 14px;
+    border: 1px solid var(--label-4);
+    transition: all 0.2s;
+    overflow: hidden;
+  }
+  .card.tally-prg {
+    border-color: var(--red);
+    box-shadow: 0 0 0 2px var(--red), 0 0 32px rgba(255, 69, 58, 0.45);
+  }
+  .card.tally-pvw {
+    border-color: var(--green);
+    box-shadow: 0 0 0 2px var(--green), 0 0 28px rgba(48, 209, 88, 0.35);
+  }
+
+  .card-header {
+    display: flex; align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .card-name {
+    flex: 1; min-width: 0;
+  }
+  .card-name .title {
+    font-size: 16px; font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+  .card-name .ip {
+    font-size: 10px; color: var(--label-2);
+    font-family: var(--font-mono);
+    margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .card-rec {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 7px; border-radius: 9px;
+    background: var(--red-tint); color: var(--red);
+    font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+  .card-rec .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--red);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+
+  /* Metric grid inside card */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .metric {
+    background: var(--bg-card);
+    border-radius: 10px;
+    padding: 7px 4px;
+    text-align: center;
+    border: 0.5px solid var(--label-4);
+    overflow: hidden;
+  }
+  .metric .label {
+    font-size: 8px; font-weight: 600;
+    color: var(--label-2);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 3px;
+  }
+  .metric .value {
+    font-size: 13px; font-weight: 600;
+    font-family: var(--font-mono);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+  }
+  .metric .icon { color: var(--label-2); margin-bottom: 2px; height: 12px; display: flex; justify-content: center; align-items: center; }
+  .metric .icon svg { width: 12px; height: 12px; }
+  .metric.av .icon { color: #5E5CE6; }
+  .metric.iso .icon { color: var(--orange); }
+  .metric.tv .icon { color: var(--purple); }
+  .metric.ae .icon { color: var(--yellow); }
+  .metric.wb .icon { color: #64D2FF; }
+  .metric.nd .icon { color: var(--label-2); }
+
+  /* Tally row at bottom of card */
+  .tally-strip {
+    display: flex; gap: 6px;
+    margin-bottom: 10px;
+  }
+  .tally-chip {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    gap: 5px;
+    padding: 6px;
+    border-radius: 9px;
+    background: rgba(120,120,128,0.16);
+    color: var(--label-3);
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .tally-chip.on.prg {
+    background: var(--red-tint);
+    color: var(--red);
+  }
+  .tally-chip.on.pvw {
+    background: var(--green-tint);
+    color: var(--green);
+  }
+  .tally-led {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 10px currentColor;
+  }
+  .tally-led.dim { opacity: 0.4; box-shadow: none; }
+
+  /* Record button */
+  .rec-btn {
+    width: 100%;
+    height: 38px;
+    border-radius: 11px;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    font-size: 13px; font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    background: var(--bg-card-elevated);
+    color: var(--label);
+    border: 0.5px solid var(--label-4);
+  }
+  .rec-btn.recording {
+    background: var(--red); color: #fff; border-color: var(--red);
+  }
+  .rec-btn .square {
+    width: 12px; height: 12px; background: #fff; border-radius: 2px;
+  }
+  .rec-btn .circle {
+    width: 14px; height: 14px; background: var(--red); border-radius: 50%;
+  }
+
+  /* Offline state */
+  .card.offline {
+    opacity: 0.55;
+  }
+  .card.offline .metrics, .card.offline .tally-strip, .card.offline .rec-btn { display: none; }
+  .offline-block {
+    text-align: center;
+    padding: 32px 0 12px;
+    color: var(--label-2);
+    font-size: 13px;
+  }
+  .offline-block .reconnect {
+    font-size: 11px; color: var(--label-3);
+    margin-top: 6px;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .offline-block .spinner {
+    width: 10px; height: 10px;
+    border: 1.5px solid var(--label-3);
+    border-top-color: var(--label);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Add-camera card */
+  .card-add {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px;
+    border: 1.5px dashed var(--label-4);
+    background: transparent;
+    color: var(--label-2);
+    font-size: 14px;
+    min-height: 220px;
+  }
+  .card-add .plus {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    display: grid; place-items: center;
+    color: var(--label);
+  }
+
+  /* ============================================================== *
+   * IPHONE FRAME — 16 Pro size                                      *
+   * ============================================================== */
+  .iphone {
+    width: 393px; height: 852px;
+    background: #1a1a1c;
+    border: 10px solid #2a2a2c;
+    border-radius: 56px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1.5px #000 inset;
+  }
+  .iphone-ui {
+    width: 100%; height: 100%;
+    background: var(--bg-primary);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Dynamic Island */
+  .island {
+    position: absolute;
+    top: 12px; left: 50%; transform: translateX(-50%);
+    width: 124px; height: 36px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 10;
+  }
+
+  .ios-status-bar {
+    height: 56px;
+    padding: 16px 24px 0;
+    display: flex; align-items: center;
+    font-size: 17px; font-weight: 600;
+    color: var(--label);
+    position: relative;
+    z-index: 5;
+  }
+  .ios-status-bar .time { flex: 1; font-variant-numeric: tabular-nums; }
+  .ios-status-bar .right {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 14px;
+  }
+
+  /* iPhone main */
+  .iphone-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 20px;
+  }
+  .iphone-content::-webkit-scrollbar { display: none; }
+
+  .ios-largetitle {
+    font-size: 34px; font-weight: 700;
+    letter-spacing: -0.025em;
+    padding: 8px 0 4px;
+  }
+  .ios-subtitle {
+    font-size: 13px; color: var(--label-2);
+    margin-bottom: 14px;
+  }
+
+  /* iOS search bar */
+  .ios-search {
+    background: var(--bg-card);
+    border-radius: 10px;
+    padding: 9px 12px;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--label-2);
+    font-size: 15px;
+    margin-bottom: 16px;
+  }
+
+  /* iPhone camera card */
+  .icam {
+    background: var(--bg-card);
+    border-radius: 18px;
+    padding: 14px;
+    margin-bottom: 12px;
+    border: 1px solid var(--label-4);
+  }
+  .icam.tally-prg {
+    border-color: var(--red);
+    box-shadow: 0 0 0 1px var(--red), 0 0 20px rgba(255,69,58,0.35);
+  }
+  .icam.tally-pvw {
+    border-color: var(--green);
+    box-shadow: 0 0 0 1px var(--green), 0 0 18px rgba(48,209,88,0.3);
+  }
+
+  .icam-head {
+    display: flex; align-items: center;
+    margin-bottom: 12px;
+  }
+  .icam-name { flex: 1; }
+  .icam-name .t { font-size: 17px; font-weight: 600; }
+  .icam-name .s { font-size: 12px; color: var(--label-2); font-family: var(--font-mono); }
+
+  .icam-tally {
+    display: flex; gap: 6px;
+    margin-left: auto;
+  }
+  .icam-tally .chip {
+    height: 22px; padding: 0 8px;
+    border-radius: 11px;
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+    background: rgba(120,120,128,0.16);
+    color: var(--label-3);
+  }
+  .icam-tally .chip.on.prg { background: var(--red-tint); color: var(--red); }
+  .icam-tally .chip.on.pvw { background: var(--green-tint); color: var(--green); }
+  .icam-tally .chip .led {
+    width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+    box-shadow: 0 0 6px currentColor;
+  }
+  .icam-tally .chip.off .led { box-shadow: none; }
+
+  .icam-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .icam-metric {
+    background: rgba(118,118,128,0.12);
+    border-radius: 10px;
+    padding: 8px 6px;
+    text-align: center;
+  }
+  .icam-metric .l {
+    font-size: 9px; font-weight: 600;
+    color: var(--label-2);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .icam-metric .v {
+    font-size: 14px; font-weight: 600;
+    font-family: var(--font-mono);
+    margin-top: 2px;
+  }
+
+  /* iPhone tab bar */
+  .tabbar {
+    height: 84px;
+    background: rgba(28,28,30,0.7);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border-top: 0.5px solid var(--sep);
+    display: flex;
+    padding: 8px 0 24px;
+  }
+  .tab {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 4px;
+    color: var(--label-2);
+    font-size: 10px;
+    font-weight: 500;
+  }
+  .tab.active { color: var(--accent); }
+
+  /* Annotation footnotes */
+  .notes {
+    max-width: 1400px;
+    margin: 60px auto 0;
+    background: var(--bg-secondary);
+    border-radius: 18px;
+    padding: 28px 32px;
+    border: 0.5px solid var(--sep);
+  }
+  .notes h2 {
+    font-size: 18px; font-weight: 600;
+    margin-bottom: 14px;
+  }
+  .notes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+  .notes-grid h3 {
+    font-size: 13px; font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 8px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .notes-grid p, .notes-grid li {
+    font-size: 13px; line-height: 1.55;
+    color: var(--label-2);
+    margin-bottom: 6px;
+  }
+  .notes-grid ul { list-style: none; padding: 0; }
+  .notes-grid li::before {
+    content: "·";
+    margin-right: 6px;
+    color: var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>C200 Controller — iPad / iPhone Redesign Preview</h1>
+  <p>Apple-native design language. iPad Pro landscape as the primary surface for live production;
+  iPhone as a quick-glance / pocket controller. Dark mode tuned for the booth.</p>
+</div>
+
+<div class="device-row">
+
+  <!-- =============================================================
+       iPad Pro 12.9" — landscape
+       ============================================================= -->
+  <div>
+    <div class="device-label">iPad Pro 12.9" · Landscape</div>
+    <div class="ipad">
+      <div class="ipad-ui">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+          <div class="sidebar-app">
+            <div class="logo">
+              <!-- camera glyph -->
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <rect x="2" y="6" width="20" height="13" rx="2.5"/>
+                <circle cx="12" cy="12.5" r="3.5"/>
+                <rect x="8" y="3.5" width="5" height="2.5" rx="1"/>
+              </svg>
+            </div>
+            <div>
+              <div class="name">C200 Controller</div>
+              <div class="build">v1.2.1 · firmware 1.2.0</div>
+            </div>
+          </div>
+
+          <div class="search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="16.5" y1="16.5" x2="21" y2="21"/>
+            </svg>
+            Search
+          </div>
+
+          <div class="group-header">Cameras · 4 of 5 online</div>
+
+          <div class="row active">
+            <span class="row-tally prg"></span>
+            <span class="row-name">Cam 1</span>
+            <span class="row-meta">10.11.1.150</span>
+          </div>
+          <div class="row">
+            <span class="row-tally pvw"></span>
+            <span class="row-name">Cam 2</span>
+            <span class="row-meta">10.11.1.151</span>
+          </div>
+          <div class="row">
+            <span class="row-tally off"></span>
+            <span class="row-name">Cam 3</span>
+            <span class="row-meta">10.11.1.152</span>
+          </div>
+          <div class="row">
+            <span class="row-tally off"></span>
+            <span class="row-name" style="color:var(--label-3)">Cam 4</span>
+            <span class="row-meta" style="color:var(--label-3)">offline</span>
+          </div>
+          <div class="row">
+            <span class="row-tally off"></span>
+            <span class="row-name">Cam 5</span>
+            <span class="row-meta">10.11.1.154</span>
+          </div>
+
+          <div class="group-header">Presets</div>
+          <div class="preset-row">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="currentColor"/>
+              <line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2" fill="currentColor"/>
+              <line x1="4" y1="18" x2="20" y2="18"/><circle cx="7" cy="18" r="2" fill="currentColor"/>
+            </svg>
+            <span class="preset-name">Sermon</span>
+          </div>
+          <div class="preset-row">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="currentColor"/>
+              <line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2" fill="currentColor"/>
+              <line x1="4" y1="18" x2="20" y2="18"/><circle cx="7" cy="18" r="2" fill="currentColor"/>
+            </svg>
+            <span class="preset-name">Worship — Stage</span>
+          </div>
+          <div class="preset-row">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="currentColor"/>
+              <line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2" fill="currentColor"/>
+              <line x1="4" y1="18" x2="20" y2="18"/><circle cx="7" cy="18" r="2" fill="currentColor"/>
+            </svg>
+            <span class="preset-name">Baptism</span>
+          </div>
+
+          <div class="sidebar-spacer"></div>
+
+          <div class="sidebar-footer">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3h0a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5h0a1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v0a1.6 1.6 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>
+            </svg>
+            <span>Settings</span>
+          </div>
+        </aside>
+
+        <!-- Detail -->
+        <main class="detail">
+          <div class="toolbar">
+            <div class="title-block">
+              <div class="title-large">Cameras</div>
+              <div class="title-sub">4 connected · TSL listening on :5200</div>
+            </div>
+            <div class="pill tsl-live">
+              <span class="dot"></span>
+              TSL · Ross Ultrix
+            </div>
+            <div class="pill recording">
+              <span class="dot pulse"></span>
+              1 recording
+            </div>
+            <div class="icon-btn" title="Firmware update">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="8 12 12 8 16 12"/>
+                <line x1="12" y1="16" x2="12" y2="8"/>
+              </svg>
+            </div>
+          </div>
+
+          <div class="grid">
+
+            <!-- Cam 1 — Program tally, recording -->
+            <div class="card tally-prg">
+              <div class="card-header">
+                <div class="card-name">
+                  <div class="title">Cam 1</div>
+                  <div class="ip">10.11.1.150 · TSL 1</div>
+                </div>
+                <div class="card-rec">
+                  <span class="dot"></span>REC
+                </div>
+              </div>
+
+              <div class="metrics">
+                <div class="metric av">
+                  <div class="icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <circle cx="12" cy="12" r="9"/>
+                      <path d="M12 3v9l7.8 4.5M12 3l-7.8 13.5M12 21l7.8-4.5M4.2 16.5L12 12l7.8 4.5"/>
+                    </svg>
+                  </div>
+                  <div class="label">Av</div>
+                  <div class="value">F2.8</div>
+                </div>
+                <div class="metric iso">
+                  <div class="icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="4"/>
+                      <line x1="12" y1="2" x2="12" y2="5"/>
+                      <line x1="12" y1="19" x2="12" y2="22"/>
+                      <line x1="2" y1="12" x2="5" y2="12"/>
+                      <line x1="19" y1="12" x2="22" y2="12"/>
+                      <line x1="5" y1="5" x2="7" y2="7"/>
+                      <line x1="17" y1="17" x2="19" y2="19"/>
+                      <line x1="5" y1="19" x2="7" y2="17"/>
+                      <line x1="17" y1="7" x2="19" y2="5"/>
+                    </svg>
+                  </div>
+                  <div class="label">ISO</div>
+                  <div class="value">800</div>
+                </div>
+                <div class="metric tv">
+                  <div class="icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                      <circle cx="12" cy="13" r="8"/>
+                      <line x1="12" y1="9" x2="12" y2="13"/>
+                      <line x1="12" y1="13" x2="15" y2="15"/>
+                      <line x1="10" y1="3" x2="14" y2="3"/>
+                    </svg>
+                  </div>
+                  <div class="label">Tv</div>
+                  <div class="value">180°</div>
+                </div>
+                <div class="metric ae">
+                  <div class="icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                      <line x1="12" y1="5" x2="12" y2="13"/>
+                      <line x1="8" y1="9" x2="16" y2="9"/>
+                      <line x1="8" y1="19" x2="16" y2="19"/>
+                    </svg>
+                  </div>
+                  <div class="label">AE</div>
+                  <div class="value">+0.0</div>
+                </div>
+                <div class="metric wb">
+                  <div class="icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                      <path d="M10 14V4a2 2 0 1 1 4 0v10a4 4 0 1 1-4 0z"/>
+                    </svg>
+                  </div>
+                  <div class="label">WB</div>
+                  <div class="value">5600K</div>
+                </div>
+                <div class="metric nd">
+                  <div class="icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <circle cx="12" cy="12" r="9"/>
+                      <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>
+                    </svg>
+                  </div>
+                  <div class="label">ND</div>
+                  <div class="value">2</div>
+                </div>
+              </div>
+
+              <div class="tally-strip">
+                <div class="tally-chip on prg">
+                  <span class="tally-led"></span>PGM
+                </div>
+                <div class="tally-chip">
+                  <span class="tally-led dim"></span>PVW
+                </div>
+              </div>
+
+              <button class="rec-btn recording">
+                <span class="square"></span>STOP
+              </button>
+            </div>
+
+            <!-- Cam 2 — Preview tally -->
+            <div class="card tally-pvw">
+              <div class="card-header">
+                <div class="card-name">
+                  <div class="title">Cam 2</div>
+                  <div class="ip">10.11.1.151 · TSL 2</div>
+                </div>
+              </div>
+              <div class="metrics">
+                <div class="metric av"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l7.8 4.5M12 3l-7.8 13.5M12 21l7.8-4.5M4.2 16.5L12 12l7.8 4.5"/></svg></div><div class="label">Av</div><div class="value">F4.0</div></div>
+                <div class="metric iso"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="7" y2="7"/><line x1="17" y1="17" x2="19" y2="19"/><line x1="5" y1="19" x2="7" y2="17"/><line x1="17" y1="7" x2="19" y2="5"/></svg></div><div class="label">ISO</div><div class="value">800</div></div>
+                <div class="metric tv"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="13" x2="15" y2="15"/><line x1="10" y1="3" x2="14" y2="3"/></svg></div><div class="label">Tv</div><div class="value">180°</div></div>
+                <div class="metric ae"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="13"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="19" x2="16" y2="19"/></svg></div><div class="label">AE</div><div class="value">+0.0</div></div>
+                <div class="metric wb"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14V4a2 2 0 1 1 4 0v10a4 4 0 1 1-4 0z"/></svg></div><div class="label">WB</div><div class="value">5600K</div></div>
+                <div class="metric nd"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></div><div class="label">ND</div><div class="value">2</div></div>
+              </div>
+              <div class="tally-strip">
+                <div class="tally-chip"><span class="tally-led dim"></span>PGM</div>
+                <div class="tally-chip on pvw"><span class="tally-led"></span>PVW</div>
+              </div>
+              <button class="rec-btn">
+                <span class="circle"></span>REC
+              </button>
+            </div>
+
+            <!-- Cam 3 — idle -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-name">
+                  <div class="title">Cam 3</div>
+                  <div class="ip">10.11.1.152 · TSL 3</div>
+                </div>
+              </div>
+              <div class="metrics">
+                <div class="metric av"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l7.8 4.5M12 3l-7.8 13.5M12 21l7.8-4.5M4.2 16.5L12 12l7.8 4.5"/></svg></div><div class="label">Av</div><div class="value">F2.8</div></div>
+                <div class="metric iso"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="7" y2="7"/><line x1="17" y1="17" x2="19" y2="19"/><line x1="5" y1="19" x2="7" y2="17"/><line x1="17" y1="7" x2="19" y2="5"/></svg></div><div class="label">ISO</div><div class="value">1600</div></div>
+                <div class="metric tv"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="13" x2="15" y2="15"/><line x1="10" y1="3" x2="14" y2="3"/></svg></div><div class="label">Tv</div><div class="value">180°</div></div>
+                <div class="metric ae"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="13"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="19" x2="16" y2="19"/></svg></div><div class="label">AE</div><div class="value">+0.0</div></div>
+                <div class="metric wb"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14V4a2 2 0 1 1 4 0v10a4 4 0 1 1-4 0z"/></svg></div><div class="label">WB</div><div class="value">3200K</div></div>
+                <div class="metric nd"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></div><div class="label">ND</div><div class="value">0</div></div>
+              </div>
+              <div class="tally-strip">
+                <div class="tally-chip"><span class="tally-led dim"></span>PGM</div>
+                <div class="tally-chip"><span class="tally-led dim"></span>PVW</div>
+              </div>
+              <button class="rec-btn">
+                <span class="circle"></span>REC
+              </button>
+            </div>
+
+            <!-- Cam 4 — offline -->
+            <div class="card offline">
+              <div class="card-header">
+                <div class="card-name">
+                  <div class="title">Cam 4</div>
+                  <div class="ip">10.11.1.153</div>
+                </div>
+              </div>
+              <div class="offline-block">
+                Offline
+                <div class="reconnect">
+                  <span class="spinner"></span>
+                  Reconnecting…
+                </div>
+              </div>
+            </div>
+
+            <!-- Cam 5 — idle -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-name">
+                  <div class="title">Cam 5</div>
+                  <div class="ip">10.11.1.154 · TSL 5</div>
+                </div>
+              </div>
+              <div class="metrics">
+                <div class="metric av"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l7.8 4.5M12 3l-7.8 13.5M12 21l7.8-4.5M4.2 16.5L12 12l7.8 4.5"/></svg></div><div class="label">Av</div><div class="value">F5.6</div></div>
+                <div class="metric iso"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="7" y2="7"/><line x1="17" y1="17" x2="19" y2="19"/><line x1="5" y1="19" x2="7" y2="17"/><line x1="17" y1="7" x2="19" y2="5"/></svg></div><div class="label">ISO</div><div class="value">400</div></div>
+                <div class="metric tv"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="13" x2="15" y2="15"/><line x1="10" y1="3" x2="14" y2="3"/></svg></div><div class="label">Tv</div><div class="value">90°</div></div>
+                <div class="metric ae"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="13"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="19" x2="16" y2="19"/></svg></div><div class="label">AE</div><div class="value">+0.5</div></div>
+                <div class="metric wb"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14V4a2 2 0 1 1 4 0v10a4 4 0 1 1-4 0z"/></svg></div><div class="label">WB</div><div class="value">5600K</div></div>
+                <div class="metric nd"><div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></div><div class="label">ND</div><div class="value">4</div></div>
+              </div>
+              <div class="tally-strip">
+                <div class="tally-chip"><span class="tally-led dim"></span>PGM</div>
+                <div class="tally-chip"><span class="tally-led dim"></span>PVW</div>
+              </div>
+              <button class="rec-btn">
+                <span class="circle"></span>REC
+              </button>
+            </div>
+
+            <!-- Add camera -->
+            <div class="card card-add">
+              <div class="plus">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </div>
+              <div>Add camera</div>
+              <div style="font-size:11px;color:var(--label-3)">Discover or enter IP</div>
+            </div>
+
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <!-- =============================================================
+       iPhone 16 Pro
+       ============================================================= -->
+  <div>
+    <div class="device-label">iPhone 16 Pro</div>
+    <div class="iphone">
+      <div class="iphone-ui">
+        <div class="island"></div>
+
+        <div class="ios-status-bar">
+          <div class="time">9:41</div>
+          <div class="right">
+            <!-- signal -->
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor">
+              <rect x="0" y="7" width="3" height="4" rx="0.5"/>
+              <rect x="4" y="5" width="3" height="6" rx="0.5"/>
+              <rect x="8" y="3" width="3" height="8" rx="0.5"/>
+              <rect x="12" y="0" width="3" height="11" rx="0.5"/>
+            </svg>
+            <!-- wifi -->
+            <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor">
+              <path d="M8 11l-2-2.5c.6-.5 1.3-.7 2-.7s1.4.2 2 .7zM12 6.5c-2.3-2-5.7-2-8 0L2.5 5C5.5 2 10.5 2 13.5 5zM15.5 3.3c-4.1-3.5-10.9-3.5-15 0L0 1.7c4.7-4 12.3-4 17 0z"/>
+            </svg>
+            <!-- battery -->
+            <svg width="26" height="12" viewBox="0 0 26 12">
+              <rect x="0.5" y="0.5" width="22" height="11" rx="2.5" fill="none" stroke="currentColor" opacity="0.4"/>
+              <rect x="2" y="2" width="18" height="8" rx="1" fill="currentColor"/>
+              <rect x="23.5" y="3.5" width="1.5" height="5" rx="0.5" fill="currentColor" opacity="0.4"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="iphone-content">
+          <div class="ios-largetitle">Cameras</div>
+          <div class="ios-subtitle">4 connected · 1 recording</div>
+
+          <div class="ios-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="16.5" y1="16.5" x2="21" y2="21"/>
+            </svg>
+            Search
+          </div>
+
+          <!-- iPhone cam list -->
+          <div class="icam tally-prg">
+            <div class="icam-head">
+              <div class="icam-name">
+                <div class="t">Cam 1</div>
+                <div class="s">10.11.1.150 · REC</div>
+              </div>
+              <div class="icam-tally">
+                <div class="chip on prg"><span class="led"></span>PGM</div>
+              </div>
+            </div>
+            <div class="icam-metrics">
+              <div class="icam-metric"><div class="l">Av</div><div class="v">F2.8</div></div>
+              <div class="icam-metric"><div class="l">ISO</div><div class="v">800</div></div>
+              <div class="icam-metric"><div class="l">Tv</div><div class="v">180°</div></div>
+              <div class="icam-metric"><div class="l">AE</div><div class="v">+0.0</div></div>
+              <div class="icam-metric"><div class="l">WB</div><div class="v">5600K</div></div>
+              <div class="icam-metric"><div class="l">ND</div><div class="v">2</div></div>
+            </div>
+          </div>
+
+          <div class="icam tally-pvw">
+            <div class="icam-head">
+              <div class="icam-name">
+                <div class="t">Cam 2</div>
+                <div class="s">10.11.1.151</div>
+              </div>
+              <div class="icam-tally">
+                <div class="chip on pvw"><span class="led"></span>PVW</div>
+              </div>
+            </div>
+            <div class="icam-metrics">
+              <div class="icam-metric"><div class="l">Av</div><div class="v">F4.0</div></div>
+              <div class="icam-metric"><div class="l">ISO</div><div class="v">800</div></div>
+              <div class="icam-metric"><div class="l">Tv</div><div class="v">180°</div></div>
+              <div class="icam-metric"><div class="l">AE</div><div class="v">+0.0</div></div>
+              <div class="icam-metric"><div class="l">WB</div><div class="v">5600K</div></div>
+              <div class="icam-metric"><div class="l">ND</div><div class="v">2</div></div>
+            </div>
+          </div>
+
+          <div class="icam">
+            <div class="icam-head">
+              <div class="icam-name">
+                <div class="t">Cam 3</div>
+                <div class="s">10.11.1.152</div>
+              </div>
+              <div class="icam-tally">
+                <div class="chip off"><span class="led"></span>OFF</div>
+              </div>
+            </div>
+            <div class="icam-metrics">
+              <div class="icam-metric"><div class="l">Av</div><div class="v">F2.8</div></div>
+              <div class="icam-metric"><div class="l">ISO</div><div class="v">1600</div></div>
+              <div class="icam-metric"><div class="l">Tv</div><div class="v">180°</div></div>
+              <div class="icam-metric"><div class="l">AE</div><div class="v">+0.0</div></div>
+              <div class="icam-metric"><div class="l">WB</div><div class="v">3200K</div></div>
+              <div class="icam-metric"><div class="l">ND</div><div class="v">0</div></div>
+            </div>
+          </div>
+
+          <div class="icam" style="opacity:0.55">
+            <div class="icam-head">
+              <div class="icam-name">
+                <div class="t">Cam 4</div>
+                <div class="s" style="color:var(--label-3)">Offline · reconnecting</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="icam">
+            <div class="icam-head">
+              <div class="icam-name">
+                <div class="t">Cam 5</div>
+                <div class="s">10.11.1.154</div>
+              </div>
+              <div class="icam-tally">
+                <div class="chip off"><span class="led"></span>OFF</div>
+              </div>
+            </div>
+            <div class="icam-metrics">
+              <div class="icam-metric"><div class="l">Av</div><div class="v">F5.6</div></div>
+              <div class="icam-metric"><div class="l">ISO</div><div class="v">400</div></div>
+              <div class="icam-metric"><div class="l">Tv</div><div class="v">90°</div></div>
+              <div class="icam-metric"><div class="l">AE</div><div class="v">+0.5</div></div>
+              <div class="icam-metric"><div class="l">WB</div><div class="v">5600K</div></div>
+              <div class="icam-metric"><div class="l">ND</div><div class="v">4</div></div>
+            </div>
+          </div>
+
+          <div style="height:90px"></div>
+        </div>
+
+        <div class="tabbar">
+          <div class="tab active">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <rect x="2" y="6" width="20" height="13" rx="2.5"/>
+              <circle cx="12" cy="12.5" r="3.5"/>
+              <rect x="8" y="3.5" width="5" height="2.5" rx="1"/>
+            </svg>
+            <span>Cameras</span>
+          </div>
+          <div class="tab">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2.4" fill="currentColor"/>
+              <line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2.4" fill="currentColor"/>
+              <line x1="4" y1="18" x2="20" y2="18"/><circle cx="7" cy="18" r="2.4" fill="currentColor"/>
+            </svg>
+            <span>Presets</span>
+          </div>
+          <div class="tab">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M3 12h3M3 18h3M3 6h3M21 6h-9M21 12h-9M21 18h-9"/>
+              <circle cx="9" cy="6" r="2.2" fill="currentColor"/>
+              <circle cx="9" cy="12" r="2.2" fill="currentColor"/>
+              <circle cx="9" cy="18" r="2.2" fill="currentColor"/>
+            </svg>
+            <span>Tally</span>
+          </div>
+          <div class="tab">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3h0a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5h0a1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v0a1.6 1.6 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>
+            </svg>
+            <span>Settings</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- =============================================================
+     Design notes
+     ============================================================= -->
+<div class="notes">
+  <h2>Design rationale</h2>
+  <div class="notes-grid">
+    <div>
+      <h3>What changed vs. today</h3>
+      <ul>
+        <li>NavigationSplitView replaces the macOS preset sidebar + grid layout</li>
+        <li>Sidebar shows live tally state as a colored dot next to each camera — quick scan</li>
+        <li>System blue (<code>#0A84FF</code>) accent instead of pink — feels native, matches iOS</li>
+        <li>True black background — easier on the eyes in a dark booth, OLED-friendly</li>
+        <li>Tap a tile to open a full-screen detail with large +/− controls (sheet on iPhone)</li>
+        <li>Card-flip "settings back" is gone — settings live in an inspector / detail sheet instead</li>
+      </ul>
+    </div>
+    <div>
+      <h3>iPad-specific</h3>
+      <ul>
+        <li>Sidebar: cameras, presets, settings. Translucent material that blurs the wall behind</li>
+        <li>Toolbar large title ("Cameras") + status pills (TSL state, recording count)</li>
+        <li>3-column grid at 12.9" landscape; collapses to 2 on iPad mini / portrait</li>
+        <li>Tally state is the loudest visual: 2px colored stroke + soft glow, never subtle</li>
+        <li>Hover (Magic Keyboard / trackpad) reveals quick actions on each tile</li>
+      </ul>
+    </div>
+    <div>
+      <h3>iPhone-specific</h3>
+      <ul>
+        <li>Tab bar: Cameras / Presets / Tally / Settings — one-thumb reach</li>
+        <li>Cards are full-width stacked rows, metrics at smaller scale</li>
+        <li>Tally chip moves to the right of the camera name — visible in the list</li>
+        <li>Tap a row → push to a single-camera control screen with large finger-friendly +/−</li>
+        <li>Pull-to-refresh re-runs Bonjour discovery</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Apple HIG choices</h3>
+      <ul>
+        <li>SF Pro Display for titles, SF Pro Text for body, SF Mono for tabular numerics</li>
+        <li>System materials (thick + thin) for sidebar and toolbar</li>
+        <li>Standard corner radii: 22 for cards, 14 for buttons, 10 for chips</li>
+        <li>Touch targets ≥ 44pt where interactive (REC button = 44pt tall)</li>
+        <li>Semantic colors (systemRed, systemGreen) so the UI follows accessibility settings</li>
+      </ul>
+    </div>
+    <div>
+      <h3>What's preserved</h3>
+      <ul>
+        <li>All six metrics: Av · ISO · Tv · AE · WB · ND</li>
+        <li>Tally PGM/PVW indicators with colored glow</li>
+        <li>Per-camera REC/STOP, identify, remove, TSL index assignment</li>
+        <li>OLED preview, camera positions assignment</li>
+        <li>Preset system: list, recall, edit-with-checkmarks</li>
+        <li>Firmware update entry (settings tab on iPhone, toolbar on iPad)</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Open questions</h3>
+      <ul>
+        <li>Does the iPad replace the director Mac, or run alongside it?</li>
+        <li>Does the iPad need wired Ethernet (USB-C dock) for tally reliability?</li>
+        <li>Should the iPhone be a true controller, or only a "glance" app?</li>
+        <li>Single-camera mode (full-screen one tile) needed for FOH operators?</li>
+        <li>Live thumbnail / video preview embed — out of scope or v2?</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

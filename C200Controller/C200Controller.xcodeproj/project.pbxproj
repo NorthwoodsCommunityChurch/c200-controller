@@ -1,0 +1,634 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		015477DF1AA6A275BF5C08EA /* CameraPositionsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B079C34A353EFFCA5F861FA /* CameraPositionsClient.swift */; };
+		08F11F2C7D4C1C34168D99F2 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEB7B7545790D86FB3910795 /* SidebarView.swift */; };
+		126EC232726ED3CCDC92A365 /* MobileContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E64A95FCF0D19AE98D063C91 /* MobileContentView.swift */; };
+		20680DB38633E14B2C3106A0 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEA93A49D801C82A2A7AFC3 /* Logger.swift */; };
+		21C42228C40CE466688B5E5A /* Preset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4131A4B9CDC52B07B49E5837 /* Preset.swift */; };
+		22F65C66508BFF3A012C1807 /* TallySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4993C704DD7959E5EFD9573 /* TallySettingsView.swift */; };
+		262E37EDB13D37836ACCCE65 /* iOSTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F393FC0852CE7BE6F1F167AB /* iOSTheme.swift */; };
+		29F7E5EFF568C1CACABC8427 /* C200ControllerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23F135B088C2E0125C1AF54 /* C200ControllerApp.swift */; };
+		2C063AB6E3D69F9B6CCA3E86 /* C200ControllerMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1FF6FCF0C0E82B61B7A4A6 /* C200ControllerMobileApp.swift */; };
+		2C8A8FC99C070FE9A99CC597 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4A63BBF2C4F29E85E1C0D1 /* CameraManager.swift */; };
+		3087461B9163885D0CD34EB8 /* PresetsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA98E5D968E4ACA62CE3A661 /* PresetsPanel.swift */; };
+		4818D45AC93BEEFD9A0AF2D0 /* c200_bridge.bin in Resources */ = {isa = PBXBuildFile; fileRef = 990DCB2F215D3ECB4DD81CAE /* c200_bridge.bin */; };
+		55A988002A40841599180CF6 /* TSLClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7278E8707F4B31958CDA25E /* TSLClient.swift */; };
+		71C30DD55FEA4EF1B3CBDF12 /* Preset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4131A4B9CDC52B07B49E5837 /* Preset.swift */; };
+		884EF791394B6807A0E2BAD3 /* FirmwareUpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AE342F22AE06080C876744 /* FirmwareUpdateManager.swift */; };
+		8A29EDBBEA60DDD22D587948 /* CameraPositionsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1445100EAB1B07E901AE93B /* CameraPositionsSettingsView.swift */; };
+		8B1A2C9B25D19CB88A7FEEEC /* TSLClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7278E8707F4B31958CDA25E /* TSLClient.swift */; };
+		8CCF2314B0C3E69F88437A97 /* PresetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61043518B093186A463939D4 /* PresetManager.swift */; };
+		945D09B4B44E93746C172F07 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4DE87BDE6BEFD2153AAA41B1 /* Sparkle */; };
+		9A1F05A19E3230490427B076 /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89A2668B305CF4785DCED11C /* Camera.swift */; };
+		A347D77AE3027E54C2AC05B1 /* MetricControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9FCA55628F7973867075800 /* MetricControl.swift */; };
+		A49798834672193A537C1C6E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A5B74677479A0EBDBA27C994 /* Assets.xcassets */; };
+		C780EF4600E368CAAA51318B /* AddCameraSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98BBA1B1826A66E86B65D66 /* AddCameraSheet.swift */; };
+		C87373AFC15971908A1D6EEB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6536765FBF64F2AB9350B070 /* ContentView.swift */; };
+		CE865A55EA917690DD12075B /* CameraDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA8886356221DFC6D4425F24 /* CameraDetailSheet.swift */; };
+		D04C245859BD9C5F2D70F670 /* CameraCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 182C83E50D80B991CF187D86 /* CameraCardView.swift */; };
+		D703C4551472D62974A1D0C6 /* FirmwareUpdateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D06F4E21F12531799B2499DC /* FirmwareUpdateView.swift */; };
+		DBA5D957106A22A334BF3F0B /* firmware_version.txt in Resources */ = {isa = PBXBuildFile; fileRef = 7D66A570F3EE5100CEAEE25F /* firmware_version.txt */; };
+		DBC0F1B85FED214EE217B274 /* MetricControlPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C0C0C3F31A5337F4D42CB10 /* MetricControlPopover.swift */; };
+		E5FC18A70244A092AAED19AE /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89A2668B305CF4785DCED11C /* Camera.swift */; };
+		E729D69E94345AC1844608EA /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4A63BBF2C4F29E85E1C0D1 /* CameraManager.swift */; };
+		E7CB1D4409F03A6EE2A8EE33 /* PresetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61043518B093186A463939D4 /* PresetManager.swift */; };
+		EA5D679F3C50A7DE1667801E /* FirmwareUpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AE342F22AE06080C876744 /* FirmwareUpdateManager.swift */; };
+		EF5B846F06543348DFCB36C1 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEA93A49D801C82A2A7AFC3 /* Logger.swift */; };
+		FBF9A0EA76D8D06EF6FFAF33 /* CameraPositionsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B079C34A353EFFCA5F861FA /* CameraPositionsClient.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		182C83E50D80B991CF187D86 /* CameraCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCardView.swift; sourceTree = "<group>"; };
+		213561AB1ACD429629E8CB4B /* C200Controller.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = C200Controller.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4131A4B9CDC52B07B49E5837 /* Preset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preset.swift; sourceTree = "<group>"; };
+		4C0C0C3F31A5337F4D42CB10 /* MetricControlPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricControlPopover.swift; sourceTree = "<group>"; };
+		61043518B093186A463939D4 /* PresetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetManager.swift; sourceTree = "<group>"; };
+		6536765FBF64F2AB9350B070 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		6B079C34A353EFFCA5F861FA /* CameraPositionsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPositionsClient.swift; sourceTree = "<group>"; };
+		7BEA93A49D801C82A2A7AFC3 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		7D66A570F3EE5100CEAEE25F /* firmware_version.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = firmware_version.txt; sourceTree = "<group>"; };
+		89A2668B305CF4785DCED11C /* Camera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Camera.swift; sourceTree = "<group>"; };
+		8A1FF6FCF0C0E82B61B7A4A6 /* C200ControllerMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = C200ControllerMobileApp.swift; sourceTree = "<group>"; };
+		990DCB2F215D3ECB4DD81CAE /* c200_bridge.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = c200_bridge.bin; sourceTree = "<group>"; };
+		A1445100EAB1B07E901AE93B /* CameraPositionsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPositionsSettingsView.swift; sourceTree = "<group>"; };
+		A5B74677479A0EBDBA27C994 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AE4A63BBF2C4F29E85E1C0D1 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
+		B9FCA55628F7973867075800 /* MetricControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricControl.swift; sourceTree = "<group>"; };
+		BA8886356221DFC6D4425F24 /* CameraDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraDetailSheet.swift; sourceTree = "<group>"; };
+		C23F135B088C2E0125C1AF54 /* C200ControllerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = C200ControllerApp.swift; sourceTree = "<group>"; };
+		C4993C704DD7959E5EFD9573 /* TallySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TallySettingsView.swift; sourceTree = "<group>"; };
+		C7AE342F22AE06080C876744 /* FirmwareUpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareUpdateManager.swift; sourceTree = "<group>"; };
+		CD84A0781E1DDBE4101B1087 /* C200ControllerMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = C200ControllerMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CEB7B7545790D86FB3910795 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		D06F4E21F12531799B2499DC /* FirmwareUpdateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareUpdateView.swift; sourceTree = "<group>"; };
+		D7278E8707F4B31958CDA25E /* TSLClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TSLClient.swift; sourceTree = "<group>"; };
+		D98BBA1B1826A66E86B65D66 /* AddCameraSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddCameraSheet.swift; sourceTree = "<group>"; };
+		E64A95FCF0D19AE98D063C91 /* MobileContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileContentView.swift; sourceTree = "<group>"; };
+		F393FC0852CE7BE6F1F167AB /* iOSTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSTheme.swift; sourceTree = "<group>"; };
+		FA98E5D968E4ACA62CE3A661 /* PresetsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetsPanel.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FFEB5F6A78071DCF8CCBE5A8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				945D09B4B44E93746C172F07 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0BCBBBFB74D8EAEFBA421BAC /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A5B74677479A0EBDBA27C994 /* Assets.xcassets */,
+				105CE6F3A0AB53667795D7F0 /* Generated */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		105CE6F3A0AB53667795D7F0 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				990DCB2F215D3ECB4DD81CAE /* c200_bridge.bin */,
+				7D66A570F3EE5100CEAEE25F /* firmware_version.txt */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
+		685DFC7C9149A6A6C18C456E = {
+			isa = PBXGroup;
+			children = (
+				0BCBBBFB74D8EAEFBA421BAC /* Resources */,
+				71D764C270F0F977CE67CE44 /* Sources */,
+				CF8AB767F5A97F78734E3288 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		71D764C270F0F977CE67CE44 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				74A2AD113BEC03E0A8AD39CD /* iOS */,
+				90F573842E5B305E469E1461 /* macOS */,
+				FD3DCDC55B15710C01B3692C /* Shared */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		74A2AD113BEC03E0A8AD39CD /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				D98BBA1B1826A66E86B65D66 /* AddCameraSheet.swift */,
+				8A1FF6FCF0C0E82B61B7A4A6 /* C200ControllerMobileApp.swift */,
+				182C83E50D80B991CF187D86 /* CameraCardView.swift */,
+				BA8886356221DFC6D4425F24 /* CameraDetailSheet.swift */,
+				F393FC0852CE7BE6F1F167AB /* iOSTheme.swift */,
+				B9FCA55628F7973867075800 /* MetricControl.swift */,
+				4C0C0C3F31A5337F4D42CB10 /* MetricControlPopover.swift */,
+				E64A95FCF0D19AE98D063C91 /* MobileContentView.swift */,
+				CEB7B7545790D86FB3910795 /* SidebarView.swift */,
+			);
+			path = iOS;
+			sourceTree = "<group>";
+		};
+		90F573842E5B305E469E1461 /* macOS */ = {
+			isa = PBXGroup;
+			children = (
+				C23F135B088C2E0125C1AF54 /* C200ControllerApp.swift */,
+				A1445100EAB1B07E901AE93B /* CameraPositionsSettingsView.swift */,
+				6536765FBF64F2AB9350B070 /* ContentView.swift */,
+				D06F4E21F12531799B2499DC /* FirmwareUpdateView.swift */,
+				FA98E5D968E4ACA62CE3A661 /* PresetsPanel.swift */,
+				C4993C704DD7959E5EFD9573 /* TallySettingsView.swift */,
+			);
+			path = macOS;
+			sourceTree = "<group>";
+		};
+		CF8AB767F5A97F78734E3288 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				213561AB1ACD429629E8CB4B /* C200Controller.app */,
+				CD84A0781E1DDBE4101B1087 /* C200ControllerMobile.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FD3DCDC55B15710C01B3692C /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				89A2668B305CF4785DCED11C /* Camera.swift */,
+				AE4A63BBF2C4F29E85E1C0D1 /* CameraManager.swift */,
+				6B079C34A353EFFCA5F861FA /* CameraPositionsClient.swift */,
+				C7AE342F22AE06080C876744 /* FirmwareUpdateManager.swift */,
+				7BEA93A49D801C82A2A7AFC3 /* Logger.swift */,
+				4131A4B9CDC52B07B49E5837 /* Preset.swift */,
+				61043518B093186A463939D4 /* PresetManager.swift */,
+				D7278E8707F4B31958CDA25E /* TSLClient.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		4D8AC81EABDF2CC83AAC0CBA /* C200ControllerMobile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 054D68B032CBA662D0FD0628 /* Build configuration list for PBXNativeTarget "C200ControllerMobile" */;
+			buildPhases = (
+				834881B38224D296FAD40058 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = C200ControllerMobile;
+			packageProductDependencies = (
+			);
+			productName = C200ControllerMobile;
+			productReference = CD84A0781E1DDBE4101B1087 /* C200ControllerMobile.app */;
+			productType = "com.apple.product-type.application";
+		};
+		4F6A96AE957D67F5FA8E09AC /* C200Controller */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FD84A08199F1FD86B46A10F3 /* Build configuration list for PBXNativeTarget "C200Controller" */;
+			buildPhases = (
+				91B3BEA1FC34B40033B24A02 /* Bundle ESP32 firmware (if available) */,
+				301B532E360AEF7F22DAF550 /* Sources */,
+				1FB76BAAB82CA158AC17CD3D /* Resources */,
+				FFEB5F6A78071DCF8CCBE5A8 /* Frameworks */,
+				9A30946BA4D8D2E98F9A1D5A /* Re-sign Sparkle nested components (inside-out) */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = C200Controller;
+			packageProductDependencies = (
+				4DE87BDE6BEFD2153AAA41B1 /* Sparkle */,
+			);
+			productName = C200Controller;
+			productReference = 213561AB1ACD429629E8CB4B /* C200Controller.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		35D889F639BEB85AB9400640 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					4D8AC81EABDF2CC83AAC0CBA = {
+						ProvisioningStyle = Automatic;
+					};
+					4F6A96AE957D67F5FA8E09AC = {
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = D5415BEC86FF09E3EC59D86B /* Build configuration list for PBXProject "C200Controller" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 685DFC7C9149A6A6C18C456E;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7D6F4B0D366B75270EDA3C7D /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4F6A96AE957D67F5FA8E09AC /* C200Controller */,
+				4D8AC81EABDF2CC83AAC0CBA /* C200ControllerMobile */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		1FB76BAAB82CA158AC17CD3D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A49798834672193A537C1C6E /* Assets.xcassets in Resources */,
+				4818D45AC93BEEFD9A0AF2D0 /* c200_bridge.bin in Resources */,
+				DBA5D957106A22A334BF3F0B /* firmware_version.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		91B3BEA1FC34B40033B24A02 /* Bundle ESP32 firmware (if available) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Bundle ESP32 firmware (if available)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nFW_DIR=\"${SRCROOT}/../ESP32Flasher/FirmwareTemplate\"\nFW_BIN=\"${FW_DIR}/build/c200_bridge.bin\"\nMAIN_C=\"${FW_DIR}/main/main.c\"\nDST=\"${SRCROOT}/Resources/Generated\"\nmkdir -p \"${DST}\"\nif [ -f \"${FW_BIN}\" ]; then\n  cp \"${FW_BIN}\" \"${DST}/c200_bridge.bin\"\n  FW_VER=$(grep '#define FIRMWARE_VERSION' \"${MAIN_C}\" | sed 's/.*\"\\(.*\\)\".*/\\1/')\n  if [ -n \"${FW_VER}\" ]; then\n    printf \"%s\" \"${FW_VER}\" > \"${DST}/firmware_version.txt\"\n  fi\n  echo \"Bundled firmware ${FW_VER:-unknown}\"\nelse\n  echo \"warning: firmware bin not found at ${FW_BIN} — OTA will require manual file selection\"\n  # Touch placeholders so Xcode doesn't complain about missing files\n  [ -f \"${DST}/c200_bridge.bin\" ] || touch \"${DST}/c200_bridge.bin\"\n  [ -f \"${DST}/firmware_version.txt\" ] || printf \"unknown\" > \"${DST}/firmware_version.txt\"\nfi\n";
+		};
+		9A30946BA4D8D2E98F9A1D5A /* Re-sign Sparkle nested components (inside-out) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Re-sign Sparkle nested components (inside-out)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nAPP=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\nSPARKLE=\"${APP}/Contents/Frameworks/Sparkle.framework\"\nif [ ! -d \"${SPARKLE}\" ]; then\n  echo \"Sparkle.framework not found — skipping\"\n  exit 0\nfi\necho \"Re-signing Sparkle inside-out at ${SPARKLE}\"\n# Strip extended attributes that OneDrive / xattr add (those invalidate signatures)\nxattr -cr \"${SPARKLE}\"\n# Sign nested components inside-out with the same adhoc identity ('-')\nIDENT=\"${EXPANDED_CODE_SIGN_IDENTITY:--}\"\n# If the identity is empty for any reason, fall back to adhoc\n[ -z \"${IDENT}\" ] && IDENT=\"-\"\ncodesign --force --sign \"${IDENT}\" \"${SPARKLE}/Versions/B/XPCServices/Installer.xpc\"\ncodesign --force --sign \"${IDENT}\" \"${SPARKLE}/Versions/B/XPCServices/Downloader.xpc\"\ncodesign --force --sign \"${IDENT}\" \"${SPARKLE}/Versions/B/Updater.app\"\ncodesign --force --sign \"${IDENT}\" \"${SPARKLE}/Versions/B/Autoupdate\"\ncodesign --force --sign \"${IDENT}\" \"${SPARKLE}\"\n# Re-sign the outer app so the framework's new signature is registered\ncodesign --force --deep --sign \"${IDENT}\" \"${APP}\"\necho \"Sparkle re-signed with identity '${IDENT}'\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		301B532E360AEF7F22DAF550 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				29F7E5EFF568C1CACABC8427 /* C200ControllerApp.swift in Sources */,
+				9A1F05A19E3230490427B076 /* Camera.swift in Sources */,
+				2C8A8FC99C070FE9A99CC597 /* CameraManager.swift in Sources */,
+				FBF9A0EA76D8D06EF6FFAF33 /* CameraPositionsClient.swift in Sources */,
+				8A29EDBBEA60DDD22D587948 /* CameraPositionsSettingsView.swift in Sources */,
+				C87373AFC15971908A1D6EEB /* ContentView.swift in Sources */,
+				884EF791394B6807A0E2BAD3 /* FirmwareUpdateManager.swift in Sources */,
+				D703C4551472D62974A1D0C6 /* FirmwareUpdateView.swift in Sources */,
+				EF5B846F06543348DFCB36C1 /* Logger.swift in Sources */,
+				21C42228C40CE466688B5E5A /* Preset.swift in Sources */,
+				8CCF2314B0C3E69F88437A97 /* PresetManager.swift in Sources */,
+				3087461B9163885D0CD34EB8 /* PresetsPanel.swift in Sources */,
+				8B1A2C9B25D19CB88A7FEEEC /* TSLClient.swift in Sources */,
+				22F65C66508BFF3A012C1807 /* TallySettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		834881B38224D296FAD40058 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C780EF4600E368CAAA51318B /* AddCameraSheet.swift in Sources */,
+				2C063AB6E3D69F9B6CCA3E86 /* C200ControllerMobileApp.swift in Sources */,
+				E5FC18A70244A092AAED19AE /* Camera.swift in Sources */,
+				D04C245859BD9C5F2D70F670 /* CameraCardView.swift in Sources */,
+				CE865A55EA917690DD12075B /* CameraDetailSheet.swift in Sources */,
+				E729D69E94345AC1844608EA /* CameraManager.swift in Sources */,
+				015477DF1AA6A275BF5C08EA /* CameraPositionsClient.swift in Sources */,
+				EA5D679F3C50A7DE1667801E /* FirmwareUpdateManager.swift in Sources */,
+				20680DB38633E14B2C3106A0 /* Logger.swift in Sources */,
+				A347D77AE3027E54C2AC05B1 /* MetricControl.swift in Sources */,
+				DBC0F1B85FED214EE217B274 /* MetricControlPopover.swift in Sources */,
+				126EC232726ED3CCDC92A365 /* MobileContentView.swift in Sources */,
+				71C30DD55FEA4EF1B3CBDF12 /* Preset.swift in Sources */,
+				E7CB1D4409F03A6EE2A8EE33 /* PresetManager.swift in Sources */,
+				08F11F2C7D4C1C34168D99F2 /* SidebarView.swift in Sources */,
+				55A988002A40841599180CF6 /* TSLClient.swift in Sources */,
+				262E37EDB13D37836ACCCE65 /* iOSTheme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0EC50D0B186E788047934C25 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		1A145FFAC0379AB2200F0B69 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 40;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Info-macOS.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = org.northwoodschurch.C200Controller;
+				PRODUCT_NAME = C200Controller;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		394DC16547FB6A8FC522AF08 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		554B1253510BF2B4DB4F8251 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Info-iOS.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.northwoodschurch.C200Controller.Mobile;
+				PRODUCT_NAME = C200ControllerMobile;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		94ACFE029EF3880D5B6A9BF8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Info-iOS.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.northwoodschurch.C200Controller.Mobile;
+				PRODUCT_NAME = C200ControllerMobile;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		EAF4F59B663EAA8384A8F511 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 40;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Info-macOS.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = org.northwoodschurch.C200Controller;
+				PRODUCT_NAME = C200Controller;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		054D68B032CBA662D0FD0628 /* Build configuration list for PBXNativeTarget "C200ControllerMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				94ACFE029EF3880D5B6A9BF8 /* Debug */,
+				554B1253510BF2B4DB4F8251 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D5415BEC86FF09E3EC59D86B /* Build configuration list for PBXProject "C200Controller" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0EC50D0B186E788047934C25 /* Debug */,
+				394DC16547FB6A8FC522AF08 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FD84A08199F1FD86B46A10F3 /* Build configuration list for PBXNativeTarget "C200Controller" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A145FFAC0379AB2200F0B69 /* Debug */,
+				EAF4F59B663EAA8384A8F511 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7D6F4B0D366B75270EDA3C7D /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4DE87BDE6BEFD2153AAA41B1 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D6F4B0D366B75270EDA3C7D /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 35D889F639BEB85AB9400640 /* Project object */;
+}
