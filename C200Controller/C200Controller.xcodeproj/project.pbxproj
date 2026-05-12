@@ -22,6 +22,7 @@
 		4818D45AC93BEEFD9A0AF2D0 /* c200_bridge.bin in Resources */ = {isa = PBXBuildFile; fileRef = 990DCB2F215D3ECB4DD81CAE /* c200_bridge.bin */; };
 		55A988002A40841599180CF6 /* TSLClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7278E8707F4B31958CDA25E /* TSLClient.swift */; };
 		71C30DD55FEA4EF1B3CBDF12 /* Preset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4131A4B9CDC52B07B49E5837 /* Preset.swift */; };
+		7D88E73DB898F4AA1CB60C12 /* Assets-iOS.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6A55B219FDB34EA2EB818F31 /* Assets-iOS.xcassets */; };
 		884EF791394B6807A0E2BAD3 /* FirmwareUpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AE342F22AE06080C876744 /* FirmwareUpdateManager.swift */; };
 		8A29EDBBEA60DDD22D587948 /* CameraPositionsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1445100EAB1B07E901AE93B /* CameraPositionsSettingsView.swift */; };
 		8B1A2C9B25D19CB88A7FEEEC /* TSLClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7278E8707F4B31958CDA25E /* TSLClient.swift */; };
@@ -56,6 +57,7 @@
 		4CBD27A9262B7397DA781628 /* FirmwareUpdateSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareUpdateSheet.swift; sourceTree = "<group>"; };
 		61043518B093186A463939D4 /* PresetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetManager.swift; sourceTree = "<group>"; };
 		6536765FBF64F2AB9350B070 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		6A55B219FDB34EA2EB818F31 /* Assets-iOS.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Assets-iOS.xcassets"; sourceTree = "<group>"; };
 		6B079C34A353EFFCA5F861FA /* CameraPositionsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPositionsClient.swift; sourceTree = "<group>"; };
 		7BEA93A49D801C82A2A7AFC3 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		7D66A570F3EE5100CEAEE25F /* firmware_version.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = firmware_version.txt; sourceTree = "<group>"; };
@@ -96,6 +98,7 @@
 		0BCBBBFB74D8EAEFBA421BAC /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				6A55B219FDB34EA2EB818F31 /* Assets-iOS.xcassets */,
 				A5B74677479A0EBDBA27C994 /* Assets.xcassets */,
 				105CE6F3A0AB53667795D7F0 /* Generated */,
 			);
@@ -194,6 +197,7 @@
 			buildConfigurationList = 054D68B032CBA662D0FD0628 /* Build configuration list for PBXNativeTarget "C200ControllerMobile" */;
 			buildPhases = (
 				834881B38224D296FAD40058 /* Sources */,
+				BD51B4FA3FD59A9F1D81B083 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -238,6 +242,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					4D8AC81EABDF2CC83AAC0CBA = {
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					4F6A96AE957D67F5FA8E09AC = {
@@ -276,6 +281,14 @@
 				A49798834672193A537C1C6E /* Assets.xcassets in Resources */,
 				4818D45AC93BEEFD9A0AF2D0 /* c200_bridge.bin in Resources */,
 				DBA5D957106A22A334BF3F0B /* firmware_version.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BD51B4FA3FD59A9F1D81B083 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7D88E73DB898F4AA1CB60C12 /* Assets-iOS.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -526,6 +539,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Info-iOS.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -550,6 +564,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Info-iOS.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;

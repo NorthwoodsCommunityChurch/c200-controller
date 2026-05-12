@@ -40,6 +40,18 @@ xcodebuild -project C200Controller.xcodeproj -scheme C200ControllerMobile \
 
 `build.sh` is retired (kept as `build.sh.legacy` for reference — the Xcode project replaces all of its responsibilities).
 
+## Deploying to a real iPad / iPhone
+
+The iOS target builds for simulator out of the box. To install on actual hardware:
+
+1. Open `developer.apple.com/account` → Membership Details → copy your **Team ID** (10-char string).
+2. In `project.yml`, set `DEVELOPMENT_TEAM: "YOUR_TEAM_ID"` under the `C200ControllerMobile` target's `settings.base`.
+3. Run `xcodegen generate`.
+4. Open `C200Controller.xcodeproj`, select `C200ControllerMobile` scheme + your physical device, hit Run.
+5. For TestFlight: Archive (Product → Archive) → Distribute App → App Store Connect.
+
+**AppIcon for iOS:** drop a 1024×1024 PNG into `Resources/Assets-iOS.xcassets/AppIcon.appiconset/` (or via Xcode's asset catalog editor — drag a PNG into the AppIcon slot). iOS 14+ auto-generates all other sizes.
+
 ## Project Structure
 
 ```
