@@ -18,6 +18,7 @@
 		2C063AB6E3D69F9B6CCA3E86 /* C200ControllerMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1FF6FCF0C0E82B61B7A4A6 /* C200ControllerMobileApp.swift */; };
 		2C8A8FC99C070FE9A99CC597 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4A63BBF2C4F29E85E1C0D1 /* CameraManager.swift */; };
 		3087461B9163885D0CD34EB8 /* PresetsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA98E5D968E4ACA62CE3A661 /* PresetsPanel.swift */; };
+		38F9FE8226BADA4BDB5D01CA /* MobilePresetsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B45C140C717C99BE4E75AC38 /* MobilePresetsView.swift */; };
 		4818D45AC93BEEFD9A0AF2D0 /* c200_bridge.bin in Resources */ = {isa = PBXBuildFile; fileRef = 990DCB2F215D3ECB4DD81CAE /* c200_bridge.bin */; };
 		55A988002A40841599180CF6 /* TSLClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7278E8707F4B31958CDA25E /* TSLClient.swift */; };
 		71C30DD55FEA4EF1B3CBDF12 /* Preset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4131A4B9CDC52B07B49E5837 /* Preset.swift */; };
@@ -29,6 +30,7 @@
 		9A1F05A19E3230490427B076 /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89A2668B305CF4785DCED11C /* Camera.swift */; };
 		A347D77AE3027E54C2AC05B1 /* MetricControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9FCA55628F7973867075800 /* MetricControl.swift */; };
 		A49798834672193A537C1C6E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A5B74677479A0EBDBA27C994 /* Assets.xcassets */; };
+		BA145DDB47A134E00B923875 /* FirmwareUpdateSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CBD27A9262B7397DA781628 /* FirmwareUpdateSheet.swift */; };
 		C780EF4600E368CAAA51318B /* AddCameraSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98BBA1B1826A66E86B65D66 /* AddCameraSheet.swift */; };
 		C87373AFC15971908A1D6EEB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6536765FBF64F2AB9350B070 /* ContentView.swift */; };
 		CE865A55EA917690DD12075B /* CameraDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA8886356221DFC6D4425F24 /* CameraDetailSheet.swift */; };
@@ -36,6 +38,7 @@
 		D703C4551472D62974A1D0C6 /* FirmwareUpdateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D06F4E21F12531799B2499DC /* FirmwareUpdateView.swift */; };
 		DBA5D957106A22A334BF3F0B /* firmware_version.txt in Resources */ = {isa = PBXBuildFile; fileRef = 7D66A570F3EE5100CEAEE25F /* firmware_version.txt */; };
 		DBC0F1B85FED214EE217B274 /* MetricControlPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C0C0C3F31A5337F4D42CB10 /* MetricControlPopover.swift */; };
+		E3C0D15EDD850517D830DF65 /* MobileSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E6DF302D0D331518529C5D /* MobileSettingsView.swift */; };
 		E5FC18A70244A092AAED19AE /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89A2668B305CF4785DCED11C /* Camera.swift */; };
 		E729D69E94345AC1844608EA /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4A63BBF2C4F29E85E1C0D1 /* CameraManager.swift */; };
 		E7CB1D4409F03A6EE2A8EE33 /* PresetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61043518B093186A463939D4 /* PresetManager.swift */; };
@@ -47,8 +50,10 @@
 /* Begin PBXFileReference section */
 		182C83E50D80B991CF187D86 /* CameraCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCardView.swift; sourceTree = "<group>"; };
 		213561AB1ACD429629E8CB4B /* C200Controller.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = C200Controller.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		34E6DF302D0D331518529C5D /* MobileSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileSettingsView.swift; sourceTree = "<group>"; };
 		4131A4B9CDC52B07B49E5837 /* Preset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preset.swift; sourceTree = "<group>"; };
 		4C0C0C3F31A5337F4D42CB10 /* MetricControlPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricControlPopover.swift; sourceTree = "<group>"; };
+		4CBD27A9262B7397DA781628 /* FirmwareUpdateSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareUpdateSheet.swift; sourceTree = "<group>"; };
 		61043518B093186A463939D4 /* PresetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetManager.swift; sourceTree = "<group>"; };
 		6536765FBF64F2AB9350B070 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		6B079C34A353EFFCA5F861FA /* CameraPositionsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPositionsClient.swift; sourceTree = "<group>"; };
@@ -60,6 +65,7 @@
 		A1445100EAB1B07E901AE93B /* CameraPositionsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPositionsSettingsView.swift; sourceTree = "<group>"; };
 		A5B74677479A0EBDBA27C994 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AE4A63BBF2C4F29E85E1C0D1 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
+		B45C140C717C99BE4E75AC38 /* MobilePresetsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePresetsView.swift; sourceTree = "<group>"; };
 		B9FCA55628F7973867075800 /* MetricControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricControl.swift; sourceTree = "<group>"; };
 		BA8886356221DFC6D4425F24 /* CameraDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraDetailSheet.swift; sourceTree = "<group>"; };
 		C23F135B088C2E0125C1AF54 /* C200ControllerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = C200ControllerApp.swift; sourceTree = "<group>"; };
@@ -131,10 +137,13 @@
 				8A1FF6FCF0C0E82B61B7A4A6 /* C200ControllerMobileApp.swift */,
 				182C83E50D80B991CF187D86 /* CameraCardView.swift */,
 				BA8886356221DFC6D4425F24 /* CameraDetailSheet.swift */,
+				4CBD27A9262B7397DA781628 /* FirmwareUpdateSheet.swift */,
 				F393FC0852CE7BE6F1F167AB /* iOSTheme.swift */,
 				B9FCA55628F7973867075800 /* MetricControl.swift */,
 				4C0C0C3F31A5337F4D42CB10 /* MetricControlPopover.swift */,
 				E64A95FCF0D19AE98D063C91 /* MobileContentView.swift */,
+				B45C140C717C99BE4E75AC38 /* MobilePresetsView.swift */,
+				34E6DF302D0D331518529C5D /* MobileSettingsView.swift */,
 				CEB7B7545790D86FB3910795 /* SidebarView.swift */,
 			);
 			path = iOS;
@@ -347,10 +356,13 @@
 				E729D69E94345AC1844608EA /* CameraManager.swift in Sources */,
 				015477DF1AA6A275BF5C08EA /* CameraPositionsClient.swift in Sources */,
 				EA5D679F3C50A7DE1667801E /* FirmwareUpdateManager.swift in Sources */,
+				BA145DDB47A134E00B923875 /* FirmwareUpdateSheet.swift in Sources */,
 				20680DB38633E14B2C3106A0 /* Logger.swift in Sources */,
 				A347D77AE3027E54C2AC05B1 /* MetricControl.swift in Sources */,
 				DBC0F1B85FED214EE217B274 /* MetricControlPopover.swift in Sources */,
 				126EC232726ED3CCDC92A365 /* MobileContentView.swift in Sources */,
+				38F9FE8226BADA4BDB5D01CA /* MobilePresetsView.swift in Sources */,
+				E3C0D15EDD850517D830DF65 /* MobileSettingsView.swift in Sources */,
 				71C30DD55FEA4EF1B3CBDF12 /* Preset.swift in Sources */,
 				E7CB1D4409F03A6EE2A8EE33 /* PresetManager.swift in Sources */,
 				08F11F2C7D4C1C34168D99F2 /* SidebarView.swift in Sources */,

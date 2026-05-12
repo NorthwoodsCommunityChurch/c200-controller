@@ -5,6 +5,7 @@ struct MobileContentView: View {
     @EnvironmentObject var presetManager: PresetManager
     @State private var selection: SidebarItem? = .allCameras
     @State private var columnVisibility: NavigationSplitViewVisibility = .doubleColumn
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -13,9 +14,18 @@ struct MobileContentView: View {
                 .environmentObject(presetManager)
                 .navigationSplitViewColumnWidth(min: 260, ideal: 280, max: 320)
         } detail: {
-            detailView
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar(.hidden, for: .navigationBar)
+            // On iPad we want the chromeless top — our custom top bar replaces the system nav bar.
+            // On iPhone (compact width) we keep the system nav bar so the sidebar toggle stays reachable.
+            Group {
+                if sizeClass == .compact {
+                    detailView
+                        .navigationBarTitleDisplayMode(.inline)
+                } else {
+                    detailView
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar(.hidden, for: .navigationBar)
+                }
+            }
         }
         .navigationSplitViewStyle(.balanced)
         .background(Theme.bgPrimary)
@@ -29,11 +39,16 @@ struct MobileContentView: View {
             CameraGridView()
                 .environmentObject(cameraManager)
         case .presets:
-            PresetsPlaceholder()
-                .environmentObject(presetManager)
+            NavigationStack {
+                MobilePresetsView()
+                    .environmentObject(presetManager)
+                    .environmentObject(cameraManager)
+            }
         case .settings:
-            SettingsPlaceholder()
-                .environmentObject(cameraManager)
+            NavigationStack {
+                MobileSettingsView()
+                    .environmentObject(cameraManager)
+            }
         }
     }
 }
@@ -200,37 +215,6 @@ struct AddCameraCard: View {
 /// Identifiable wrapper so `.sheet(item:)` can drive presentation from a String id.
 struct CameraIDBox: Identifiable {
     let id: String
-}
-
-// MARK: - Placeholders (Phase 2/3)
-
-struct PresetsPlaceholder: View {
-    @EnvironmentObject var presetManager: PresetManager
-    var body: some View {
-        ZStack {
-            Theme.bgPrimary.ignoresSafeArea()
-            ContentUnavailableView(
-                "Presets",
-                systemImage: "slider.horizontal.3",
-                description: Text("\(presetManager.presets.count) preset(s) — full UI lands in Phase 3.")
-            )
-            .tint(Theme.accent)
-        }
-    }
-}
-
-struct SettingsPlaceholder: View {
-    @EnvironmentObject var cameraManager: CameraManager
-    var body: some View {
-        ZStack {
-            Theme.bgPrimary.ignoresSafeArea()
-            ContentUnavailableView(
-                "Settings",
-                systemImage: "gearshape",
-                description: Text("TSL, firmware update, camera positions — wired up in Phase 3.")
-            )
-        }
-    }
 }
 
 #Preview {
