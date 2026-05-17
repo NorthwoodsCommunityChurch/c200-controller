@@ -21,6 +21,7 @@
 		38F9FE8226BADA4BDB5D01CA /* MobilePresetsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B45C140C717C99BE4E75AC38 /* MobilePresetsView.swift */; };
 		4818D45AC93BEEFD9A0AF2D0 /* c200_bridge.bin in Resources */ = {isa = PBXBuildFile; fileRef = 990DCB2F215D3ECB4DD81CAE /* c200_bridge.bin */; };
 		55A988002A40841599180CF6 /* TSLClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7278E8707F4B31958CDA25E /* TSLClient.swift */; };
+		55DC954BF1B3FFCD13AD3ABF /* TSLDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E15262FCD2FF7A7F09EADA1E /* TSLDiagnosticsView.swift */; };
 		71C30DD55FEA4EF1B3CBDF12 /* Preset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4131A4B9CDC52B07B49E5837 /* Preset.swift */; };
 		7D88E73DB898F4AA1CB60C12 /* Assets-iOS.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6A55B219FDB34EA2EB818F31 /* Assets-iOS.xcassets */; };
 		884EF791394B6807A0E2BAD3 /* FirmwareUpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AE342F22AE06080C876744 /* FirmwareUpdateManager.swift */; };
@@ -84,6 +85,7 @@
 		D06F4E21F12531799B2499DC /* FirmwareUpdateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareUpdateView.swift; sourceTree = "<group>"; };
 		D7278E8707F4B31958CDA25E /* TSLClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TSLClient.swift; sourceTree = "<group>"; };
 		D98BBA1B1826A66E86B65D66 /* AddCameraSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddCameraSheet.swift; sourceTree = "<group>"; };
+		E15262FCD2FF7A7F09EADA1E /* TSLDiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TSLDiagnosticsView.swift; sourceTree = "<group>"; };
 		E64A95FCF0D19AE98D063C91 /* MobileContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileContentView.swift; sourceTree = "<group>"; };
 		F393FC0852CE7BE6F1F167AB /* iOSTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSTheme.swift; sourceTree = "<group>"; };
 		FA98E5D968E4ACA62CE3A661 /* PresetsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetsPanel.swift; sourceTree = "<group>"; };
@@ -169,6 +171,7 @@
 				D06F4E21F12531799B2499DC /* FirmwareUpdateView.swift */,
 				FA98E5D968E4ACA62CE3A661 /* PresetsPanel.swift */,
 				C4993C704DD7959E5EFD9573 /* TallySettingsView.swift */,
+				E15262FCD2FF7A7F09EADA1E /* TSLDiagnosticsView.swift */,
 			);
 			path = macOS;
 			sourceTree = "<group>";
@@ -383,6 +386,7 @@
 				8CCF2314B0C3E69F88437A97 /* PresetManager.swift in Sources */,
 				3087461B9163885D0CD34EB8 /* PresetsPanel.swift in Sources */,
 				8B1A2C9B25D19CB88A7FEEEC /* TSLClient.swift in Sources */,
+				55DC954BF1B3FFCD13AD3ABF /* TSLDiagnosticsView.swift in Sources */,
 				22F65C66508BFF3A012C1807 /* TallySettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

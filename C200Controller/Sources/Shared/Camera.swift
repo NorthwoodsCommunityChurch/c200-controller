@@ -368,6 +368,13 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     /// Periodically refreshes /api/status for the diagnostic counters that
     /// WebSocket pushes don't carry (TSL packets total/matched/last-index).
     /// Cancels itself on disconnect via stopPolling() / disconnect().
+    /// Public re-fetch of /api/status — used by the TSL Diagnostics panel's
+    /// "Refresh All Boxes" button to bypass the 2-second poll cycle when the
+    /// operator wants an immediate snapshot.
+    func refreshStatusForDiagnostics() async throws {
+        try await fetchESP32Status()
+    }
+
     private func startStatusDiagnosticsPoll() {
         statusPollTask?.cancel()
         statusPollTask = Task { [weak self] in

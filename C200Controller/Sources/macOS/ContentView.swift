@@ -58,6 +58,7 @@ struct HeaderView: View {
     @State private var showingFirmwareUpdate = false
     @State private var showingTallySettings = false
     @State private var showingPositionsSettings = false
+    @State private var showingTSLDiagnostics = false
 
     private var connectedCount: Int {
         cameraManager.cameraStates.values.filter { $0.isConnected }.count
@@ -137,6 +138,15 @@ struct HeaderView: View {
                     }
                     .buttonStyle(.plain)
                     .help("TSL Settings (⌘⇧T)")
+                    Button {
+                        showingTSLDiagnostics = true
+                    } label: {
+                        Image(systemName: "stethoscope")
+                            .font(.system(size: 13))
+                            .foregroundColor(.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("TSL Diagnostics (⌘⇧D)")
                 }
 
                 // Camera Positions status + settings
@@ -183,6 +193,10 @@ struct HeaderView: View {
         }
         .sheet(isPresented: $showingPositionsSettings) {
             CameraPositionsSettingsView()
+                .environmentObject(cameraManager)
+        }
+        .sheet(isPresented: $showingTSLDiagnostics) {
+            TSLDiagnosticsView()
                 .environmentObject(cameraManager)
         }
     }

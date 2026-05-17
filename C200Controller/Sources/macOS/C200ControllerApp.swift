@@ -9,6 +9,7 @@ struct C200ControllerApp: App {
     @State private var showingTallySettings = false
     @State private var showingFirmwareUpdate = false
     @State private var showingPositionsSettings = false
+    @State private var showingTSLDiagnostics = false
 
     init() {
         updaterController = SPUStandardUpdaterController(
@@ -38,6 +39,10 @@ struct C200ControllerApp: App {
                     CameraPositionsSettingsView()
                         .environmentObject(cameraManager)
                 }
+                .sheet(isPresented: $showingTSLDiagnostics) {
+                    TSLDiagnosticsView()
+                        .environmentObject(cameraManager)
+                }
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1150, height: 700)
@@ -60,6 +65,11 @@ struct C200ControllerApp: App {
                     showingPositionsSettings = true
                 }
                 .keyboardShortcut("P", modifiers: [.command, .shift])
+
+                Button("TSL Status...") {
+                    showingTSLDiagnostics = true
+                }
+                .keyboardShortcut("D", modifiers: [.command, .shift])
             }
         }
     }
