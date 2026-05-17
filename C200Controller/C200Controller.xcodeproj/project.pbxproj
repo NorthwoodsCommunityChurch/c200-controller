@@ -32,6 +32,7 @@
 		9A1F05A19E3230490427B076 /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89A2668B305CF4785DCED11C /* Camera.swift */; };
 		A347D77AE3027E54C2AC05B1 /* MetricControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9FCA55628F7973867075800 /* MetricControl.swift */; };
 		A49798834672193A537C1C6E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A5B74677479A0EBDBA27C994 /* Assets.xcassets */; };
+		B12742A00BD5B1D31B49AA12 /* firmware_version.txt in Resources */ = {isa = PBXBuildFile; fileRef = 7D66A570F3EE5100CEAEE25F /* firmware_version.txt */; };
 		BA145DDB47A134E00B923875 /* FirmwareUpdateSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CBD27A9262B7397DA781628 /* FirmwareUpdateSheet.swift */; };
 		BD2342C0DEE99CF69F4DEE60 /* iPhoneCameraDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C2C8ABB79352070D4B6A5DC /* iPhoneCameraDetailView.swift */; };
 		C780EF4600E368CAAA51318B /* AddCameraSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98BBA1B1826A66E86B65D66 /* AddCameraSheet.swift */; };
@@ -41,6 +42,7 @@
 		D703C4551472D62974A1D0C6 /* FirmwareUpdateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D06F4E21F12531799B2499DC /* FirmwareUpdateView.swift */; };
 		DBA5D957106A22A334BF3F0B /* firmware_version.txt in Resources */ = {isa = PBXBuildFile; fileRef = 7D66A570F3EE5100CEAEE25F /* firmware_version.txt */; };
 		DBC0F1B85FED214EE217B274 /* MetricControlPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C0C0C3F31A5337F4D42CB10 /* MetricControlPopover.swift */; };
+		E2505B2522345A8F7BD29D1F /* c200_bridge.bin in Resources */ = {isa = PBXBuildFile; fileRef = 990DCB2F215D3ECB4DD81CAE /* c200_bridge.bin */; };
 		E3C0D15EDD850517D830DF65 /* MobileSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E6DF302D0D331518529C5D /* MobileSettingsView.swift */; };
 		E5FC18A70244A092AAED19AE /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89A2668B305CF4785DCED11C /* Camera.swift */; };
 		E729D69E94345AC1844608EA /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4A63BBF2C4F29E85E1C0D1 /* CameraManager.swift */; };
@@ -202,6 +204,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 054D68B032CBA662D0FD0628 /* Build configuration list for PBXNativeTarget "C200ControllerMobile" */;
 			buildPhases = (
+				AA675448D3D56112236F20A9 /* Bundle ESP32 firmware (if available) */,
 				834881B38224D296FAD40058 /* Sources */,
 				BD51B4FA3FD59A9F1D81B083 /* Resources */,
 			);
@@ -295,6 +298,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				7D88E73DB898F4AA1CB60C12 /* Assets-iOS.xcassets in Resources */,
+				E2505B2522345A8F7BD29D1F /* c200_bridge.bin in Resources */,
+				B12742A00BD5B1D31B49AA12 /* firmware_version.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -338,6 +343,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "set -e\nAPP=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\nSPARKLE=\"${APP}/Contents/Frameworks/Sparkle.framework\"\nif [ ! -d \"${SPARKLE}\" ]; then\n  echo \"Sparkle.framework not found — skipping\"\n  exit 0\nfi\necho \"Re-signing Sparkle inside-out at ${SPARKLE}\"\n# Strip extended attributes that OneDrive / xattr add (those invalidate signatures)\nxattr -cr \"${SPARKLE}\"\n# Sign nested components inside-out with the same adhoc identity ('-')\nIDENT=\"${EXPANDED_CODE_SIGN_IDENTITY:--}\"\n# If the identity is empty for any reason, fall back to adhoc\n[ -z \"${IDENT}\" ] && IDENT=\"-\"\ncodesign --force --sign \"${IDENT}\" \"${SPARKLE}/Versions/B/XPCServices/Installer.xpc\"\ncodesign --force --sign \"${IDENT}\" \"${SPARKLE}/Versions/B/XPCServices/Downloader.xpc\"\ncodesign --force --sign \"${IDENT}\" \"${SPARKLE}/Versions/B/Updater.app\"\ncodesign --force --sign \"${IDENT}\" \"${SPARKLE}/Versions/B/Autoupdate\"\ncodesign --force --sign \"${IDENT}\" \"${SPARKLE}\"\n# Re-sign the outer app so the framework's new signature is registered\ncodesign --force --deep --sign \"${IDENT}\" \"${APP}\"\necho \"Sparkle re-signed with identity '${IDENT}'\"\n";
+		};
+		AA675448D3D56112236F20A9 /* Bundle ESP32 firmware (if available) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Bundle ESP32 firmware (if available)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nFW_DIR=\"${SRCROOT}/../ESP32Flasher/FirmwareTemplate\"\nFW_BIN=\"${FW_DIR}/build/c200_bridge.bin\"\nMAIN_C=\"${FW_DIR}/main/main.c\"\nDST=\"${SRCROOT}/Resources/Generated\"\nmkdir -p \"${DST}\"\nif [ -f \"${FW_BIN}\" ]; then\n  cp \"${FW_BIN}\" \"${DST}/c200_bridge.bin\"\n  FW_VER=$(grep '#define FIRMWARE_VERSION' \"${MAIN_C}\" | sed 's/.*\"\\(.*\\)\".*/\\1/')\n  if [ -n \"${FW_VER}\" ]; then\n    printf \"%s\" \"${FW_VER}\" > \"${DST}/firmware_version.txt\"\n  fi\n  echo \"Bundled firmware ${FW_VER:-unknown} into iOS target\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -546,7 +570,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = TQ6Y49W7UW;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Info-iOS.plist";
@@ -571,7 +595,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = TQ6Y49W7UW;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Info-iOS.plist";

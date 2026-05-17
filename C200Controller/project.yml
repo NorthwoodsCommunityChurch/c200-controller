@@ -129,6 +129,26 @@ targets:
       - path: Sources/Shared
       - path: Sources/iOS
       - path: Resources/Assets-iOS.xcassets
+      - path: Resources/Generated
+        buildPhase: resources
+    preBuildScripts:
+      - name: Bundle ESP32 firmware (if available)
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          FW_DIR="${SRCROOT}/../ESP32Flasher/FirmwareTemplate"
+          FW_BIN="${FW_DIR}/build/c200_bridge.bin"
+          MAIN_C="${FW_DIR}/main/main.c"
+          DST="${SRCROOT}/Resources/Generated"
+          mkdir -p "${DST}"
+          if [ -f "${FW_BIN}" ]; then
+            cp "${FW_BIN}" "${DST}/c200_bridge.bin"
+            FW_VER=$(grep '#define FIRMWARE_VERSION' "${MAIN_C}" | sed 's/.*"\(.*\)".*/\1/')
+            if [ -n "${FW_VER}" ]; then
+              printf "%s" "${FW_VER}" > "${DST}/firmware_version.txt"
+            fi
+            echo "Bundled firmware ${FW_VER:-unknown} into iOS target"
+          fi
     info:
       path: Info-iOS.plist
       properties:
@@ -166,7 +186,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: org.northwoodschurch.C200Controller.Mobile
         PRODUCT_NAME: C200ControllerMobile
         MARKETING_VERSION: "1.0.0"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "2"
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
