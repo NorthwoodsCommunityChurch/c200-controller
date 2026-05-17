@@ -113,7 +113,7 @@
 
 static const char *TAG = "C200_CTRL";
 
-#define FIRMWARE_VERSION "1.2.3"
+#define FIRMWARE_VERSION "1.2.4"
 
 // WiFi roaming: trigger an AP rescan when current signal drops below this.
 // Pairs with WIFI_ALL_CHANNEL_SCAN + WIFI_CONNECT_AP_BY_SIGNAL so the reconnect
@@ -2470,9 +2470,40 @@ static esp_err_t tally_brightness_handler(httpd_req_t *req)
     if (val < 0) val = 0;
     if (val > 255) val = 255;
 
-    tally_brightness = (uint8_t)val;
-    // Re-apply current state at new brightness
-    tally_led_set(current_tally_state);
+    // Brightness must be set AND the PWM duties refreshed atomically with
+    // respect to TSL state changes. The previous implementation read
+    // `current_tally_state` outside the mutex, then called `tally_led_set`
+    // with that stale value — if a TSL packet flipped state between the read
+    // and the call, the brightness handler would silently clobber the new
+    // PROGRAM state with the old PREVIEW (the stuck-green-on-PGM bug).
+    if (tally_mutex && xSemaphoreTake(tally_mutex, pdMS_TO_TICKS(100))) {
+        tally_brightness = (uint8_t)val;
+        // Re-apply PWM duties based on the CURRENT state, read inside the
+        // mutex so we observe whatever TSL just set.
+        switch (current_tally_state) {
+            case TALLY_OFF:
+                ledc_set_tally(TALLY_LEDC_RED_CH, 0);
+                ledc_set_tally(TALLY_LEDC_GREEN_CH, 0);
+                break;
+            case TALLY_PROGRAM:
+                ledc_set_tally(TALLY_LEDC_RED_CH, 1);
+                ledc_set_tally(TALLY_LEDC_GREEN_CH, 0);
+                break;
+            case TALLY_PREVIEW:
+                ledc_set_tally(TALLY_LEDC_RED_CH, 0);
+                ledc_set_tally(TALLY_LEDC_GREEN_CH, 1);
+                break;
+            case TALLY_BOTH:
+                ledc_set_tally(TALLY_LEDC_RED_CH, 1);
+                ledc_set_tally(TALLY_LEDC_GREEN_CH, 1);
+                break;
+        }
+        xSemaphoreGive(tally_mutex);
+    } else {
+        // Fall back: still record the new brightness even if mutex is busy;
+        // the next state change will pick it up.
+        tally_brightness = (uint8_t)val;
+    }
     ws_broadcast_state();
 
     ESP_LOGI(TAG, "Tally brightness set to %d", val);

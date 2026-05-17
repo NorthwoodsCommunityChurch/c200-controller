@@ -171,6 +171,11 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
 
     // Rate-limit the oled_number=0 triggered push (5-second cooldown)
     private var lastPositionsPushAttempt: Date = .distantPast
+    /// Last time we sent a brightness update to this box. Rate-limited to
+    /// once per 30 s so that flapping WebSocket connections (which used to
+    /// fire `sendBrightness` every 3 s via the `!wasReachable` path) can't
+    /// race the TSL state machine and clobber the LED color mid-cut.
+    private var lastBrightnessSendAttempt: Date = .distantPast
 
     // Networking
     private var pollTimer: Timer?
@@ -492,23 +497,27 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         }
         if !wasReachable {
             onConnected?()
-            // ESP32 just came back online — re-send brightness since it resets to full on reboot
-            let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
-            let pct = savedPct == 0 ? 1 : savedPct
-            let esp32Value = Int(Double(pct) / 100.0 * 255.0)
-            Task { await self.sendBrightness(esp32Value) }
+            // ESP32 just came back online — re-send brightness since it resets to full on reboot.
+            // Throttled to 30 s so flapping WebSocket connections don't fire sendBrightness
+            // every few seconds, which raced the TSL state machine and clobbered the LED color
+            // mid-cut (stuck-green-on-PGM bug, fixed in firmware 1.2.4 atomically too).
+            if Date().timeIntervalSince(lastBrightnessSendAttempt) > 30 {
+                lastBrightnessSendAttempt = Date()
+                let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
+                let pct = savedPct == 0 ? 1 : savedPct
+                let esp32Value = Int(Double(pct) / 100.0 * 255.0)
+                Task { await self.sendBrightness(esp32Value) }
+            }
         }
 
         // If the board reports oled_number == 0 (just rebooted or display not yet set),
-        // push positions and brightness again. Rate-limited to once every 5 seconds so we don't spam.
+        // push positions again. Brightness is NOT re-pushed here — it's a 30-s-throttled
+        // signal in the `!wasReachable` path above; pushing on every oled_number==0 turn
+        // every 5 s was the brightness flood that raced the TSL state machine.
         if let oledNum = json["oled_number"] as? Int, oledNum == 0,
            Date().timeIntervalSince(lastPositionsPushAttempt) > 5 {
             lastPositionsPushAttempt = Date()
             onConnected?()
-            let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
-            let pct = savedPct == 0 ? 1 : savedPct
-            let esp32Value = Int(Double(pct) / 100.0 * 255.0)
-            Task { await self.sendBrightness(esp32Value) }
         }
 
         // Status
