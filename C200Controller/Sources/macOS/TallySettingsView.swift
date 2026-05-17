@@ -325,25 +325,66 @@ struct CameraTallyRow: View {
 /// Single-index picker. Boards only ever apply one tally index, so the UI
 /// matches: tap a row to select it (auto-dismisses the popover), or tap
 /// "None" to clear. 0 means unassigned.
+/// Picker that lists every UMD ID the switcher is currently sending, with the
+/// switcher's own display name for that source. Operators pick from a real
+/// list of what's on the wire instead of guessing numbers. Falls back to a
+/// "Custom ID" stepper for cases where the box's source isn't currently
+/// being sent (e.g. tally hasn't been cut to it yet).
 struct TSLIndexPicker: View {
     @Binding var selectedIndex: Int
     var onPick: ((Int) -> Void)? = nil
+    @EnvironmentObject var cameraManager: CameraManager
     @State private var search = ""
+    @State private var customMode = false
+    @State private var customIDDraft: Int = 1
     @Environment(\.dismiss) private var dismiss
 
-    private var filteredIndices: [Int] {
-        let all = Array(1...127)
-        if search.isEmpty { return all }
-        return all.filter { String($0).contains(search) }
+    private var sortedDiscovered: [TSLDiscoveredID] {
+        let entries = Array(cameraManager.discoveredTSLIDs.values)
+            .sorted { $0.umdID < $1.umdID }
+        if search.isEmpty { return entries }
+        let q = search.lowercased()
+        return entries.filter {
+            $0.displayName.lowercased().contains(q) || String($0.umdID).contains(q)
+        }
     }
 
     var body: some View {
         VStack(spacing: 0) {
+            header
+
+            Divider()
+
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    noneRow
+
+                    if !sortedDiscovered.isEmpty {
+                        Divider().padding(.leading, 12)
+                        ForEach(sortedDiscovered) { entry in
+                            discoveredRow(entry)
+                            Divider().padding(.leading, 12)
+                        }
+                    } else {
+                        emptyHint
+                    }
+
+                    customSection
+                }
+            }
+        }
+        .frame(width: 320, height: 400)
+    }
+
+    // MARK: - Sections
+
+    private var header: some View {
+        VStack(spacing: 6) {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
                     .font(.caption)
-                TextField("Search inputs...", text: $search)
+                TextField("Search by name or ID...", text: $search)
                     .textFieldStyle(.plain)
                     .font(.callout)
                 if !search.isEmpty {
@@ -354,45 +395,139 @@ struct TSLIndexPicker: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(10)
-
-            Divider()
-
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    // "None" row — clears the assignment
-                    pickerRow(label: "None", index: 0, isSelected: selectedIndex == 0)
-                    Divider().padding(.leading, 38)
-
-                    ForEach(filteredIndices, id: \.self) { index in
-                        pickerRow(label: "Input \(index)", index: index, isSelected: selectedIndex == index)
-                        if index != filteredIndices.last {
-                            Divider().padding(.leading, 38)
-                        }
-                    }
-                }
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(cameraManager.tslClientConnected ? Color.success : Color(white: 0.5))
+                    .frame(width: 6, height: 6)
+                Text(cameraManager.tslClientConnected
+                     ? "\(cameraManager.discoveredTSLIDs.count) source(s) live"
+                     : (cameraManager.tslListening ? "Listening — no switcher connected" : "TSL off"))
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                Spacer()
             }
         }
-        .frame(width: 210, height: 320)
+        .padding(10)
     }
 
-    @ViewBuilder
-    private func pickerRow(label: String, index: Int, isSelected: Bool) -> some View {
-        Button(action: { pick(index) }) {
+    private var noneRow: some View {
+        Button { pick(0) } label: {
             HStack(spacing: 10) {
-                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .foregroundColor(isSelected ? .accentColor : Color(NSColor.tertiaryLabelColor))
+                Image(systemName: selectedIndex == 0 ? "largecircle.fill.circle" : "circle")
+                    .foregroundColor(selectedIndex == 0 ? .accentColor : Color(NSColor.tertiaryLabelColor))
                     .font(.system(size: 15))
-                Text(label)
+                Text("None — don't react to any TSL")
                     .foregroundColor(.primary)
                     .font(.callout)
                 Spacer()
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
-            .background(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
+            .background(selectedIndex == 0 ? Color.accentColor.opacity(0.08) : Color.clear)
         }
         .buttonStyle(.plain)
+    }
+
+    private func discoveredRow(_ entry: TSLDiscoveredID) -> some View {
+        Button { pick(entry.umdID) } label: {
+            HStack(spacing: 10) {
+                Image(systemName: selectedIndex == entry.umdID ? "largecircle.fill.circle" : "circle")
+                    .foregroundColor(selectedIndex == entry.umdID ? .accentColor : Color(NSColor.tertiaryLabelColor))
+                    .font(.system(size: 15))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        // Live tally indicator dot
+                        Circle()
+                            .fill(tallyColor(entry))
+                            .frame(width: 7, height: 7)
+                        Text(entry.displayName.isEmpty ? "ID \(entry.umdID)" : entry.displayName)
+                            .foregroundColor(.primary)
+                            .font(.callout)
+                    }
+                    HStack(spacing: 6) {
+                        Text("UMD \(entry.umdID)")
+                            .font(.caption.monospaced())
+                            .foregroundColor(.secondary)
+                        Text("·")
+                            .foregroundColor(Color(NSColor.tertiaryLabelColor))
+                        Text("\(entry.packetCount) pkts")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(selectedIndex == entry.umdID ? Color.accentColor.opacity(0.08) : Color.clear)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var emptyHint: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("No UMD IDs discovered yet")
+                .font(.callout)
+                .foregroundColor(.secondary)
+            Text("Cut to each camera on the switcher one at a time. IDs will appear here as the dashboard sees them on the TSL stream.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+    }
+
+    private var customSection: some View {
+        VStack(spacing: 0) {
+            Divider()
+            Button {
+                customMode.toggle()
+                if customMode {
+                    customIDDraft = selectedIndex > 0 ? selectedIndex : 1
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "pencil")
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 13))
+                    Text(customMode ? "Hide custom ID" : "Enter ID manually...")
+                        .foregroundColor(.primary)
+                        .font(.callout)
+                    Spacer()
+                    Image(systemName: customMode ? "chevron.up" : "chevron.down")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+            }
+            .buttonStyle(.plain)
+
+            if customMode {
+                HStack(spacing: 8) {
+                    Stepper(value: $customIDDraft, in: 1...65535) {
+                        TextField("ID", value: $customIDDraft, format: .number)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 70)
+                            .font(.callout.monospaced())
+                    }
+                    Button("Set") { pick(customIDDraft) }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func tallyColor(_ entry: TSLDiscoveredID) -> Color {
+        if entry.isProgram { return .error }
+        if entry.isPreview { return .success }
+        return Color(white: 0.35)
     }
 
     private func pick(_ index: Int) {

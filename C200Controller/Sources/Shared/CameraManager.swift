@@ -2,6 +2,26 @@ import Foundation
 import Network
 import Combine
 
+/// One entry in the dashboard's live TSL discovery map. The dashboard listens
+/// to the same UMD stream the boxes do, so it sees every ID the switcher is
+/// sending — meaning operators don't have to know in advance what number to
+/// type into a box's filter; they pick from a list with names.
+struct TSLDiscoveredID: Identifiable, Hashable {
+    var id: Int { umdID }
+    let umdID: Int
+    var displayName: String     // last seen text from the packet ("CAM 1", "WIDE")
+    var isProgram: Bool
+    var isPreview: Bool
+    var lastSeen: Date
+    var packetCount: Int
+
+    /// Friendly title for the picker. Uses the switcher-provided name when
+    /// the switcher actually sent one; falls back to the bare ID.
+    var pickerTitle: String {
+        displayName.isEmpty ? "ID \(umdID)" : "\(displayName) (\(umdID))"
+    }
+}
+
 /// Manages multiple cameras with auto-discovery and persistence
 @MainActor
 class CameraManager: ObservableObject {
@@ -44,6 +64,11 @@ class CameraManager: ObservableObject {
     }
     @Published var tslListening = false       // port is bound and accepting
     @Published var tslClientConnected = false // a switcher is actively connected
+    /// Every distinct UMD ID we've seen the switcher send, with metadata.
+    /// Powers the GUI tally picker — operators pick a tally source from this
+    /// live list instead of guessing a number. Cleared when the switcher
+    /// disconnects (keeping stale entries would let users pick dead IDs).
+    @Published var discoveredTSLIDs: [Int: TSLDiscoveredID] = [:]
     // Some switchers (Ross Ultrix in some configs, certain Roland models) swap the
     // T1/T2 bit assignment relative to the BBC/ATEM/vMix convention we default to.
     // When true, we invert isProgram/isPreview as packets arrive AND we tell the
@@ -422,12 +447,25 @@ class CameraManager: ObservableObject {
                 appLog("TSL: switcher disconnected — clearing all tally")
                 // Clear tally on all cameras so nothing stays stuck when switcher goes offline
                 self?.clearAllTally()
+                // Also clear the discovery map — stale entries would let the
+                // operator pick a UMD ID that the switcher is no longer sending.
+                self?.discoveredTSLIDs.removeAll()
             }
         }
 
         tslClient?.onTallyUpdate = { [weak self] index, isProgram, isPreview in
             Task { @MainActor in
                 self?.handleTallyUpdate(index: index, isProgram: isProgram, isPreview: isPreview)
+            }
+        }
+
+        // Discovery: maintain a live map of every UMD ID the switcher sends.
+        // Fires on EVERY parsed packet, not just state changes, so the
+        // packetCount keeps ticking up and the picker can show recency.
+        tslClient?.onPacketObserved = { [weak self] index, name, isProgram, isPreview in
+            Task { @MainActor in
+                self?.recordDiscoveredTSLID(index: index, name: name,
+                                            isProgram: isProgram, isPreview: isPreview)
             }
         }
 
@@ -444,7 +482,34 @@ class CameraManager: ObservableObject {
         tslListening = false
         tslClientConnected = false
         clearAllTally()
+        discoveredTSLIDs.removeAll()
         UserDefaults.standard.set(false, forKey: "tsl_enabled")
+    }
+
+    /// Adds or updates a discovered UMD ID. Called by TSLClient's per-packet
+    /// observer; updates packet counts and last-seen state so the picker UI
+    /// can show recency and live tally bits.
+    func recordDiscoveredTSLID(index: Int, name: String, isProgram: Bool, isPreview: Bool) {
+        guard index > 0 else { return }   // 0 = "off" / unassigned, not a real ID
+        if var existing = discoveredTSLIDs[index] {
+            existing.packetCount += 1
+            existing.lastSeen = Date()
+            existing.isProgram = isProgram
+            existing.isPreview = isPreview
+            // Only adopt the name if the switcher actually included one — don't
+            // wipe a good name with an empty one from the next packet.
+            if !name.isEmpty { existing.displayName = name }
+            discoveredTSLIDs[index] = existing
+        } else {
+            discoveredTSLIDs[index] = TSLDiscoveredID(
+                umdID: index,
+                displayName: name,
+                isProgram: isProgram,
+                isPreview: isPreview,
+                lastSeen: Date(),
+                packetCount: 1
+            )
+        }
     }
 
     private func clearAllTally() {

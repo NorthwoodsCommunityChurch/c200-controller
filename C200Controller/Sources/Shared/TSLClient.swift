@@ -12,6 +12,16 @@ class TSLClient {
     var onClientDisconnected: (() -> Void)?      // switcher disconnected
     var onTallyUpdate: ((Int, Bool, Bool) -> Void)?
 
+    /// Fires on every successfully-parsed packet, regardless of whether the
+    /// tally state actually changed. Used by CameraManager to maintain a
+    /// `discoveredTSLIDs` map so the GUI can show operators what UMD IDs the
+    /// switcher is actively sending (and let them pick one per box from a
+    /// real list instead of guessing numbers). Carries the display text the
+    /// switcher attached to the packet, when available — Carbonite/Ultrix
+    /// typically put the source's UMD label there ("CAM1", "WIDE", etc.).
+    /// Parameters: `(umdID, displayName, isProgram, isPreview)`
+    var onPacketObserved: ((Int, String, Bool, Bool) -> Void)?
+
     // Per-index state cache so we only dispatch onTallyUpdate when the resolved tally
     // state actually changes. Switchers re-send the same state every cycle (often many
     // times per second per index) and a busy switcher emits thousands of indices we don't
@@ -98,8 +108,6 @@ class TSLClient {
             }
 
             if let data = data, !data.isEmpty {
-                let hexPreview = data.prefix(40).map { String(format: "%02X", $0) }.joined(separator: " ")
-                appLog("TSL: Received \(data.count) bytes: \(hexPreview)\(data.count > 40 ? "..." : "")")
                 self?.parseTSLData(data)
             }
 
@@ -172,7 +180,7 @@ class TSLClient {
         // TSL UMD 3.1 format:
         // Byte 0: Address (0-126)
         // Byte 1: Control byte (bits: 0-1=tally1, 2-3=tally2, 4-5=tally3, 6-7=tally4)
-        // Bytes 2-17: 16 character display text
+        // Bytes 2-17: 16 character display text (ASCII, space-padded)
 
         guard data.count >= 18 else {
             appLog("TSL 3.1: Data too short (\(data.count) bytes)")
@@ -192,13 +200,22 @@ class TSLClient {
         // TSL index is typically 1-based, convert to our index
         let index = address + 1
 
+        // Display name: 16 ASCII bytes starting at offset 2, trimmed of trailing spaces / nulls.
+        let nameBytes = data.subdata(in: 2..<18)
+        let name = String(data: nameBytes, encoding: .ascii)?
+            .trimmingCharacters(in: CharacterSet(charactersIn: " \0")) ?? ""
+
+        // Fire the per-packet observer so the discovery cache sees every packet,
+        // even when state is unchanged (so packet counts keep ticking up).
+        DispatchQueue.main.async { [weak self] in
+            self?.onPacketObserved?(index, name, isProgram, isPreview)
+        }
+
         let prev = lastTallyState[index]
         if prev?.program == isProgram && prev?.preview == isPreview {
             return  // unchanged — switcher re-sending; skip the main-actor hop
         }
         lastTallyState[index] = (isProgram, isPreview)
-
-        appLog("TSL 3.1: Address=\(address), Index=\(index), Preview=\(isPreview), Program=\(isProgram)")
 
         DispatchQueue.main.async { [weak self] in
             self?.onTallyUpdate?(index, isProgram, isPreview)
@@ -234,13 +251,33 @@ class TSLClient {
         let isProgram = tally1 > 0
         let isPreview = tally2 > 0
 
+        // Display text: UTF-16LE characters at bytes 12..(12+len). LEN is a
+        // count of UTF-16 code units, so byte count = LEN * 2. Some switchers
+        // send ASCII via TSL 5.0 — fall back to ASCII if UTF-16LE decode fails.
+        var name = ""
+        if data.count >= 12 {
+            let textLenCodeUnits = Int(data[10]) | (Int(data[11]) << 8)
+            let textByteCount = textLenCodeUnits * 2
+            let textEnd = min(12 + textByteCount, data.count)
+            if textEnd > 12 {
+                let textBytes = data.subdata(in: 12..<textEnd)
+                if let s = String(data: textBytes, encoding: .utf16LittleEndian) {
+                    name = s.trimmingCharacters(in: .whitespacesAndNewlines)
+                } else if let s = String(data: textBytes, encoding: .ascii) {
+                    name = s.trimmingCharacters(in: CharacterSet(charactersIn: " \0"))
+                }
+            }
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.onPacketObserved?(index, name, isProgram, isPreview)
+        }
+
         let prev = lastTallyState[index]
         if prev?.program == isProgram && prev?.preview == isPreview {
             return  // unchanged — skip the main-actor hop
         }
         lastTallyState[index] = (isProgram, isPreview)
-
-        appLog("TSL 5.0: Index=\(index), Preview=\(isPreview), Program=\(isProgram)")
 
         // Index is already 1-based in TSL 5.0
         DispatchQueue.main.async { [weak self] in
