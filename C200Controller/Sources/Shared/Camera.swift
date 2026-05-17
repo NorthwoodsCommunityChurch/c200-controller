@@ -100,6 +100,12 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     @Published var wifiConnected = false
     @Published var ethConnected = false
     @Published var wifiRSSI: Int? = nil       // dBm reported by the ESP32, nil if unknown
+    /// Whether the Canon C200 attached to this ESP32 box is online (Ethernet link
+    /// up + camera reachable on 1.1.1.2). Independent from `isConnected` — the
+    /// dashboard considers the box "connected" as soon as its HTTP API responds,
+    /// because that's the criterion for pushing tally config over WebSocket.
+    /// Camera-only features (REC, metric values) gate on `cameraAttached`.
+    @Published var cameraAttached = false
 
     // Camera state
     @Published var isRecording = false
@@ -308,13 +314,18 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
             self.esp32Reachable = true
             self.wifiConnected = json["wifi_connected"] as? Bool ?? false
             self.ethConnected = json["eth_connected"] as? Bool ?? false
+            self.cameraAttached = json["camera_connected"] as? Bool ?? false
             self.isRecording = json["is_recording"] as? Bool ?? false
             if let rssi = json["wifi_rssi"] as? Int, rssi != 0 {
                 self.wifiRSSI = rssi
             }
         }
 
-        return json["camera_connected"] as? Bool ?? false
+        // The dashboard is "connected" to the box as soon as the HTTP API
+        // responds — that's enough to open a WebSocket and push tsl_config.
+        // The attached Canon camera being offline doesn't block tally because
+        // boards self-tally directly from the switcher (v1.2.0 architecture).
+        return true
     }
 
     private func startPolling() {
@@ -435,8 +446,10 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         }
 
         // Status
-        isConnected = json["camera_connected"] as? Bool ?? false
-        isRecording = (json["recording"] as? Bool ?? false) && isConnected
+        // `isConnected` reflects box-reachability (driven by HTTP /api/status and
+        // WebSocket lifecycle). `cameraAttached` is the separate Canon→ESP32 link.
+        cameraAttached = json["camera_connected"] as? Bool ?? false
+        isRecording = (json["recording"] as? Bool ?? false) && cameraAttached
         wifiConnected = json["wifi_connected"] as? Bool ?? false
         ethConnected = json["eth_connected"] as? Bool ?? false
         if let rssi = json["wifi_rssi"] as? Int, rssi != 0 {
@@ -472,7 +485,8 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
             self.esp32Reachable = true
             self.wifiConnected = json["wifi_connected"] as? Bool ?? false
             self.ethConnected = json["eth_connected"] as? Bool ?? false
-            self.isConnected = json["camera_connected"] as? Bool ?? false
+            // `isConnected` driven by the WebSocket / connect() lifecycle, not here.
+            self.cameraAttached = json["camera_connected"] as? Bool ?? false
             self.isRecording = json["is_recording"] as? Bool ?? false
             if let rssi = json["wifi_rssi"] as? Int, rssi != 0 {
                 self.wifiRSSI = rssi
