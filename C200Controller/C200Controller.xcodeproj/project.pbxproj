@@ -8,41 +8,48 @@
 
 /* Begin PBXBuildFile section */
 		015477DF1AA6A275BF5C08EA /* CameraPositionsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B079C34A353EFFCA5F861FA /* CameraPositionsClient.swift */; };
+		04000FDBD381749F4F0F4960 /* CameraGridHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A57C35CC3519EB5B244AFA9 /* CameraGridHelpers.swift */; };
+		073F4D21B5A1823C24793D8F /* CameraCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99600E003906B6B34BB0CA86 /* CameraCardView.swift */; };
 		08F11F2C7D4C1C34168D99F2 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEB7B7545790D86FB3910795 /* SidebarView.swift */; };
 		126EC232726ED3CCDC92A365 /* MobileContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E64A95FCF0D19AE98D063C91 /* MobileContentView.swift */; };
+		18DE5E87DC609D4F8C8FA1A8 /* CameraCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99600E003906B6B34BB0CA86 /* CameraCardView.swift */; };
 		20680DB38633E14B2C3106A0 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEA93A49D801C82A2A7AFC3 /* Logger.swift */; };
 		21C42228C40CE466688B5E5A /* Preset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4131A4B9CDC52B07B49E5837 /* Preset.swift */; };
 		22F65C66508BFF3A012C1807 /* TallySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4993C704DD7959E5EFD9573 /* TallySettingsView.swift */; };
-		262E37EDB13D37836ACCCE65 /* iOSTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F393FC0852CE7BE6F1F167AB /* iOSTheme.swift */; };
 		29F7E5EFF568C1CACABC8427 /* C200ControllerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23F135B088C2E0125C1AF54 /* C200ControllerApp.swift */; };
+		2B1A124381CBAC17FB628A78 /* MetricControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C3F970F785519A750071622 /* MetricControl.swift */; };
 		2C063AB6E3D69F9B6CCA3E86 /* C200ControllerMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1FF6FCF0C0E82B61B7A4A6 /* C200ControllerMobileApp.swift */; };
 		2C8A8FC99C070FE9A99CC597 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4A63BBF2C4F29E85E1C0D1 /* CameraManager.swift */; };
 		3087461B9163885D0CD34EB8 /* PresetsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA98E5D968E4ACA62CE3A661 /* PresetsPanel.swift */; };
+		351D5195C44AB513E9A30912 /* AddCameraSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FCC45995E076E117202E7EF /* AddCameraSheet.swift */; };
 		38F9FE8226BADA4BDB5D01CA /* MobilePresetsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B45C140C717C99BE4E75AC38 /* MobilePresetsView.swift */; };
+		43E5A702EE766A326891C8CE /* CameraDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCD8CD12D264A123B873FB09 /* CameraDetailSheet.swift */; };
+		47558C98350E36A4A3254DD7 /* MetricControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C3F970F785519A750071622 /* MetricControl.swift */; };
 		4818D45AC93BEEFD9A0AF2D0 /* c200_bridge.bin in Resources */ = {isa = PBXBuildFile; fileRef = 990DCB2F215D3ECB4DD81CAE /* c200_bridge.bin */; };
 		55A988002A40841599180CF6 /* TSLClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7278E8707F4B31958CDA25E /* TSLClient.swift */; };
 		55DC954BF1B3FFCD13AD3ABF /* TSLDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E15262FCD2FF7A7F09EADA1E /* TSLDiagnosticsView.swift */; };
+		66C402441172CAC450E7B9E3 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3D18D472F8B442C717CEBB6 /* Theme.swift */; };
 		71C30DD55FEA4EF1B3CBDF12 /* Preset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4131A4B9CDC52B07B49E5837 /* Preset.swift */; };
+		76EA26FF1D76F9F9384FB936 /* MetricControlPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74D99A2B3850FA486E87176D /* MetricControlPopover.swift */; };
 		7D88E73DB898F4AA1CB60C12 /* Assets-iOS.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6A55B219FDB34EA2EB818F31 /* Assets-iOS.xcassets */; };
+		83FE7C754FDB05072B31430A /* MacOSDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0919E0E2E10CDEF4703ABA68 /* MacOSDashboardView.swift */; };
 		884EF791394B6807A0E2BAD3 /* FirmwareUpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AE342F22AE06080C876744 /* FirmwareUpdateManager.swift */; };
 		8A29EDBBEA60DDD22D587948 /* CameraPositionsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1445100EAB1B07E901AE93B /* CameraPositionsSettingsView.swift */; };
 		8B1A2C9B25D19CB88A7FEEEC /* TSLClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7278E8707F4B31958CDA25E /* TSLClient.swift */; };
 		8CCF2314B0C3E69F88437A97 /* PresetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61043518B093186A463939D4 /* PresetManager.swift */; };
+		8EB9C9314F007C3837C4179F /* CameraGridHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A57C35CC3519EB5B244AFA9 /* CameraGridHelpers.swift */; };
 		945D09B4B44E93746C172F07 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4DE87BDE6BEFD2153AAA41B1 /* Sparkle */; };
 		98C1C1BEE6269F189DAF0A1F /* iPhoneTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40471961E959DC852077AA3D /* iPhoneTabView.swift */; };
 		9A1F05A19E3230490427B076 /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89A2668B305CF4785DCED11C /* Camera.swift */; };
-		A347D77AE3027E54C2AC05B1 /* MetricControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9FCA55628F7973867075800 /* MetricControl.swift */; };
+		9DCFE5C7E169CC2824B1E9A8 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3D18D472F8B442C717CEBB6 /* Theme.swift */; };
 		A49798834672193A537C1C6E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A5B74677479A0EBDBA27C994 /* Assets.xcassets */; };
 		B12742A00BD5B1D31B49AA12 /* firmware_version.txt in Resources */ = {isa = PBXBuildFile; fileRef = 7D66A570F3EE5100CEAEE25F /* firmware_version.txt */; };
 		BA145DDB47A134E00B923875 /* FirmwareUpdateSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CBD27A9262B7397DA781628 /* FirmwareUpdateSheet.swift */; };
+		BC3B1C8B603DE816481A888A /* AddCameraSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FCC45995E076E117202E7EF /* AddCameraSheet.swift */; };
 		BD2342C0DEE99CF69F4DEE60 /* iPhoneCameraDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C2C8ABB79352070D4B6A5DC /* iPhoneCameraDetailView.swift */; };
-		C780EF4600E368CAAA51318B /* AddCameraSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98BBA1B1826A66E86B65D66 /* AddCameraSheet.swift */; };
 		C87373AFC15971908A1D6EEB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6536765FBF64F2AB9350B070 /* ContentView.swift */; };
-		CE865A55EA917690DD12075B /* CameraDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA8886356221DFC6D4425F24 /* CameraDetailSheet.swift */; };
-		D04C245859BD9C5F2D70F670 /* CameraCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 182C83E50D80B991CF187D86 /* CameraCardView.swift */; };
 		D703C4551472D62974A1D0C6 /* FirmwareUpdateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D06F4E21F12531799B2499DC /* FirmwareUpdateView.swift */; };
 		DBA5D957106A22A334BF3F0B /* firmware_version.txt in Resources */ = {isa = PBXBuildFile; fileRef = 7D66A570F3EE5100CEAEE25F /* firmware_version.txt */; };
-		DBC0F1B85FED214EE217B274 /* MetricControlPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C0C0C3F31A5337F4D42CB10 /* MetricControlPopover.swift */; };
 		E2505B2522345A8F7BD29D1F /* c200_bridge.bin in Resources */ = {isa = PBXBuildFile; fileRef = 990DCB2F215D3ECB4DD81CAE /* c200_bridge.bin */; };
 		E3C0D15EDD850517D830DF65 /* MobileSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E6DF302D0D331518529C5D /* MobileSettingsView.swift */; };
 		E5FC18A70244A092AAED19AE /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89A2668B305CF4785DCED11C /* Camera.swift */; };
@@ -50,44 +57,48 @@
 		E7CB1D4409F03A6EE2A8EE33 /* PresetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61043518B093186A463939D4 /* PresetManager.swift */; };
 		EA5D679F3C50A7DE1667801E /* FirmwareUpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AE342F22AE06080C876744 /* FirmwareUpdateManager.swift */; };
 		EF5B846F06543348DFCB36C1 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEA93A49D801C82A2A7AFC3 /* Logger.swift */; };
+		F59FEEB80C8EC752A2559C3C /* CameraDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCD8CD12D264A123B873FB09 /* CameraDetailSheet.swift */; };
+		F7F9BE11C1DF022AA38ABB10 /* MetricControlPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74D99A2B3850FA486E87176D /* MetricControlPopover.swift */; };
 		FBF9A0EA76D8D06EF6FFAF33 /* CameraPositionsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B079C34A353EFFCA5F861FA /* CameraPositionsClient.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		182C83E50D80B991CF187D86 /* CameraCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCardView.swift; sourceTree = "<group>"; };
+		0919E0E2E10CDEF4703ABA68 /* MacOSDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacOSDashboardView.swift; sourceTree = "<group>"; };
 		213561AB1ACD429629E8CB4B /* C200Controller.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = C200Controller.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A57C35CC3519EB5B244AFA9 /* CameraGridHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraGridHelpers.swift; sourceTree = "<group>"; };
 		2C2C8ABB79352070D4B6A5DC /* iPhoneCameraDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPhoneCameraDetailView.swift; sourceTree = "<group>"; };
 		34E6DF302D0D331518529C5D /* MobileSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileSettingsView.swift; sourceTree = "<group>"; };
 		40471961E959DC852077AA3D /* iPhoneTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPhoneTabView.swift; sourceTree = "<group>"; };
 		4131A4B9CDC52B07B49E5837 /* Preset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preset.swift; sourceTree = "<group>"; };
-		4C0C0C3F31A5337F4D42CB10 /* MetricControlPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricControlPopover.swift; sourceTree = "<group>"; };
+		4C3F970F785519A750071622 /* MetricControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricControl.swift; sourceTree = "<group>"; };
 		4CBD27A9262B7397DA781628 /* FirmwareUpdateSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareUpdateSheet.swift; sourceTree = "<group>"; };
+		5FCC45995E076E117202E7EF /* AddCameraSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddCameraSheet.swift; sourceTree = "<group>"; };
 		61043518B093186A463939D4 /* PresetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetManager.swift; sourceTree = "<group>"; };
 		6536765FBF64F2AB9350B070 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		6A55B219FDB34EA2EB818F31 /* Assets-iOS.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Assets-iOS.xcassets"; sourceTree = "<group>"; };
 		6B079C34A353EFFCA5F861FA /* CameraPositionsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPositionsClient.swift; sourceTree = "<group>"; };
+		74D99A2B3850FA486E87176D /* MetricControlPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricControlPopover.swift; sourceTree = "<group>"; };
 		7BEA93A49D801C82A2A7AFC3 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		7D66A570F3EE5100CEAEE25F /* firmware_version.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = firmware_version.txt; sourceTree = "<group>"; };
 		89A2668B305CF4785DCED11C /* Camera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Camera.swift; sourceTree = "<group>"; };
 		8A1FF6FCF0C0E82B61B7A4A6 /* C200ControllerMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = C200ControllerMobileApp.swift; sourceTree = "<group>"; };
 		990DCB2F215D3ECB4DD81CAE /* c200_bridge.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = c200_bridge.bin; sourceTree = "<group>"; };
+		99600E003906B6B34BB0CA86 /* CameraCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCardView.swift; sourceTree = "<group>"; };
 		A1445100EAB1B07E901AE93B /* CameraPositionsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPositionsSettingsView.swift; sourceTree = "<group>"; };
 		A5B74677479A0EBDBA27C994 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AE4A63BBF2C4F29E85E1C0D1 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
+		B3D18D472F8B442C717CEBB6 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		B45C140C717C99BE4E75AC38 /* MobilePresetsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePresetsView.swift; sourceTree = "<group>"; };
-		B9FCA55628F7973867075800 /* MetricControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricControl.swift; sourceTree = "<group>"; };
-		BA8886356221DFC6D4425F24 /* CameraDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraDetailSheet.swift; sourceTree = "<group>"; };
 		C23F135B088C2E0125C1AF54 /* C200ControllerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = C200ControllerApp.swift; sourceTree = "<group>"; };
 		C4993C704DD7959E5EFD9573 /* TallySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TallySettingsView.swift; sourceTree = "<group>"; };
 		C7AE342F22AE06080C876744 /* FirmwareUpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareUpdateManager.swift; sourceTree = "<group>"; };
+		CCD8CD12D264A123B873FB09 /* CameraDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraDetailSheet.swift; sourceTree = "<group>"; };
 		CD84A0781E1DDBE4101B1087 /* C200ControllerMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = C200ControllerMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CEB7B7545790D86FB3910795 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		D06F4E21F12531799B2499DC /* FirmwareUpdateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareUpdateView.swift; sourceTree = "<group>"; };
 		D7278E8707F4B31958CDA25E /* TSLClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TSLClient.swift; sourceTree = "<group>"; };
-		D98BBA1B1826A66E86B65D66 /* AddCameraSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddCameraSheet.swift; sourceTree = "<group>"; };
 		E15262FCD2FF7A7F09EADA1E /* TSLDiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TSLDiagnosticsView.swift; sourceTree = "<group>"; };
 		E64A95FCF0D19AE98D063C91 /* MobileContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileContentView.swift; sourceTree = "<group>"; };
-		F393FC0852CE7BE6F1F167AB /* iOSTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSTheme.swift; sourceTree = "<group>"; };
 		FA98E5D968E4ACA62CE3A661 /* PresetsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetsPanel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -144,16 +155,10 @@
 		74A2AD113BEC03E0A8AD39CD /* iOS */ = {
 			isa = PBXGroup;
 			children = (
-				D98BBA1B1826A66E86B65D66 /* AddCameraSheet.swift */,
 				8A1FF6FCF0C0E82B61B7A4A6 /* C200ControllerMobileApp.swift */,
-				182C83E50D80B991CF187D86 /* CameraCardView.swift */,
-				BA8886356221DFC6D4425F24 /* CameraDetailSheet.swift */,
 				4CBD27A9262B7397DA781628 /* FirmwareUpdateSheet.swift */,
-				F393FC0852CE7BE6F1F167AB /* iOSTheme.swift */,
 				2C2C8ABB79352070D4B6A5DC /* iPhoneCameraDetailView.swift */,
 				40471961E959DC852077AA3D /* iPhoneTabView.swift */,
-				B9FCA55628F7973867075800 /* MetricControl.swift */,
-				4C0C0C3F31A5337F4D42CB10 /* MetricControlPopover.swift */,
 				E64A95FCF0D19AE98D063C91 /* MobileContentView.swift */,
 				B45C140C717C99BE4E75AC38 /* MobilePresetsView.swift */,
 				34E6DF302D0D331518529C5D /* MobileSettingsView.swift */,
@@ -169,6 +174,7 @@
 				A1445100EAB1B07E901AE93B /* CameraPositionsSettingsView.swift */,
 				6536765FBF64F2AB9350B070 /* ContentView.swift */,
 				D06F4E21F12531799B2499DC /* FirmwareUpdateView.swift */,
+				0919E0E2E10CDEF4703ABA68 /* MacOSDashboardView.swift */,
 				FA98E5D968E4ACA62CE3A661 /* PresetsPanel.swift */,
 				C4993C704DD7959E5EFD9573 /* TallySettingsView.swift */,
 				E15262FCD2FF7A7F09EADA1E /* TSLDiagnosticsView.swift */,
@@ -188,13 +194,20 @@
 		FD3DCDC55B15710C01B3692C /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				5FCC45995E076E117202E7EF /* AddCameraSheet.swift */,
 				89A2668B305CF4785DCED11C /* Camera.swift */,
+				99600E003906B6B34BB0CA86 /* CameraCardView.swift */,
+				CCD8CD12D264A123B873FB09 /* CameraDetailSheet.swift */,
+				2A57C35CC3519EB5B244AFA9 /* CameraGridHelpers.swift */,
 				AE4A63BBF2C4F29E85E1C0D1 /* CameraManager.swift */,
 				6B079C34A353EFFCA5F861FA /* CameraPositionsClient.swift */,
 				C7AE342F22AE06080C876744 /* FirmwareUpdateManager.swift */,
 				7BEA93A49D801C82A2A7AFC3 /* Logger.swift */,
+				4C3F970F785519A750071622 /* MetricControl.swift */,
+				74D99A2B3850FA486E87176D /* MetricControlPopover.swift */,
 				4131A4B9CDC52B07B49E5837 /* Preset.swift */,
 				61043518B093186A463939D4 /* PresetManager.swift */,
+				B3D18D472F8B442C717CEBB6 /* Theme.swift */,
 				D7278E8707F4B31958CDA25E /* TSLClient.swift */,
 			);
 			path = Shared;
@@ -373,8 +386,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BC3B1C8B603DE816481A888A /* AddCameraSheet.swift in Sources */,
 				29F7E5EFF568C1CACABC8427 /* C200ControllerApp.swift in Sources */,
 				9A1F05A19E3230490427B076 /* Camera.swift in Sources */,
+				073F4D21B5A1823C24793D8F /* CameraCardView.swift in Sources */,
+				43E5A702EE766A326891C8CE /* CameraDetailSheet.swift in Sources */,
+				04000FDBD381749F4F0F4960 /* CameraGridHelpers.swift in Sources */,
 				2C8A8FC99C070FE9A99CC597 /* CameraManager.swift in Sources */,
 				FBF9A0EA76D8D06EF6FFAF33 /* CameraPositionsClient.swift in Sources */,
 				8A29EDBBEA60DDD22D587948 /* CameraPositionsSettingsView.swift in Sources */,
@@ -382,12 +399,16 @@
 				884EF791394B6807A0E2BAD3 /* FirmwareUpdateManager.swift in Sources */,
 				D703C4551472D62974A1D0C6 /* FirmwareUpdateView.swift in Sources */,
 				EF5B846F06543348DFCB36C1 /* Logger.swift in Sources */,
+				83FE7C754FDB05072B31430A /* MacOSDashboardView.swift in Sources */,
+				2B1A124381CBAC17FB628A78 /* MetricControl.swift in Sources */,
+				76EA26FF1D76F9F9384FB936 /* MetricControlPopover.swift in Sources */,
 				21C42228C40CE466688B5E5A /* Preset.swift in Sources */,
 				8CCF2314B0C3E69F88437A97 /* PresetManager.swift in Sources */,
 				3087461B9163885D0CD34EB8 /* PresetsPanel.swift in Sources */,
 				8B1A2C9B25D19CB88A7FEEEC /* TSLClient.swift in Sources */,
 				55DC954BF1B3FFCD13AD3ABF /* TSLDiagnosticsView.swift in Sources */,
 				22F65C66508BFF3A012C1807 /* TallySettingsView.swift in Sources */,
+				66C402441172CAC450E7B9E3 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -395,18 +416,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C780EF4600E368CAAA51318B /* AddCameraSheet.swift in Sources */,
+				351D5195C44AB513E9A30912 /* AddCameraSheet.swift in Sources */,
 				2C063AB6E3D69F9B6CCA3E86 /* C200ControllerMobileApp.swift in Sources */,
 				E5FC18A70244A092AAED19AE /* Camera.swift in Sources */,
-				D04C245859BD9C5F2D70F670 /* CameraCardView.swift in Sources */,
-				CE865A55EA917690DD12075B /* CameraDetailSheet.swift in Sources */,
+				18DE5E87DC609D4F8C8FA1A8 /* CameraCardView.swift in Sources */,
+				F59FEEB80C8EC752A2559C3C /* CameraDetailSheet.swift in Sources */,
+				8EB9C9314F007C3837C4179F /* CameraGridHelpers.swift in Sources */,
 				E729D69E94345AC1844608EA /* CameraManager.swift in Sources */,
 				015477DF1AA6A275BF5C08EA /* CameraPositionsClient.swift in Sources */,
 				EA5D679F3C50A7DE1667801E /* FirmwareUpdateManager.swift in Sources */,
 				BA145DDB47A134E00B923875 /* FirmwareUpdateSheet.swift in Sources */,
 				20680DB38633E14B2C3106A0 /* Logger.swift in Sources */,
-				A347D77AE3027E54C2AC05B1 /* MetricControl.swift in Sources */,
-				DBC0F1B85FED214EE217B274 /* MetricControlPopover.swift in Sources */,
+				47558C98350E36A4A3254DD7 /* MetricControl.swift in Sources */,
+				F7F9BE11C1DF022AA38ABB10 /* MetricControlPopover.swift in Sources */,
 				126EC232726ED3CCDC92A365 /* MobileContentView.swift in Sources */,
 				38F9FE8226BADA4BDB5D01CA /* MobilePresetsView.swift in Sources */,
 				E3C0D15EDD850517D830DF65 /* MobileSettingsView.swift in Sources */,
@@ -414,7 +436,7 @@
 				E7CB1D4409F03A6EE2A8EE33 /* PresetManager.swift in Sources */,
 				08F11F2C7D4C1C34168D99F2 /* SidebarView.swift in Sources */,
 				55A988002A40841599180CF6 /* TSLClient.swift in Sources */,
-				262E37EDB13D37836ACCCE65 /* iOSTheme.swift in Sources */,
+				9DCFE5C7E169CC2824B1E9A8 /* Theme.swift in Sources */,
 				BD2342C0DEE99CF69F4DEE60 /* iPhoneCameraDetailView.swift in Sources */,
 				98C1C1BEE6269F189DAF0A1F /* iPhoneTabView.swift in Sources */,
 			);

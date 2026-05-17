@@ -27,10 +27,10 @@ struct CameraDetailSheet: View {
                         statusRow(camera: camera, state: state)
                         if camera.connectionType == .esp32 {
                             LabeledContent("WiFi") {
-                                statusDot(state.wifiConnected) + Text(state.wifiConnected ? "OK" : "—").foregroundStyle(.secondary)
+                                statusDot(state.wifiConnected) + Text(state.wifiConnected ? "OK" : "—").foregroundColor(.secondary)
                             }
                             LabeledContent("Ethernet") {
-                                statusDot(state.ethConnected) + Text(state.ethConnected ? "OK" : "—").foregroundStyle(.secondary)
+                                statusDot(state.ethConnected) + Text(state.ethConnected ? "OK" : "—").foregroundColor(.secondary)
                             }
                         }
                         LabeledContent("IP", value: camera.ip)
@@ -62,16 +62,31 @@ struct CameraDetailSheet: View {
                         }
                     }
                 } else {
-                    ContentUnavailableView("Camera removed", systemImage: "exclamationmark.triangle")
+                    VStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                        Text("Camera removed")
+                            .font(.headline)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 160)
                 }
             }
             .navigationTitle(camera?.name ?? "Camera")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                 }
             }
+            #else
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            #endif
             .alert("Remove camera?", isPresented: $showingRemoveConfirm) {
                 Button("Cancel", role: .cancel) { }
                 Button("Remove", role: .destructive) {
@@ -106,7 +121,7 @@ struct CameraDetailSheet: View {
 
     private func statusDot(_ on: Bool) -> Text {
         Text(Image(systemName: "circle.fill"))
-            .foregroundStyle(on ? Theme.green : Theme.label3) + Text(" ")
+            .foregroundColor(on ? Theme.green : Theme.label3) + Text(" ")
     }
 
     // MARK: - TSL

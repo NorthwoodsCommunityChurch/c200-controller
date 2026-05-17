@@ -222,8 +222,12 @@ struct MetricTile: View {
         }
         .buttonStyle(.plain)
         .popover(isPresented: $showingPopover, arrowEdge: .bottom) {
+            #if os(iOS)
             MetricControlPopover(control: control, state: state)
                 .presentationCompactAdaptation(.popover)
+            #else
+            MetricControlPopover(control: control, state: state)
+            #endif
         }
     }
 

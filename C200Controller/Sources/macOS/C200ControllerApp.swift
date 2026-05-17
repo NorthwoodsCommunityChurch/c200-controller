@@ -10,6 +10,10 @@ struct C200ControllerApp: App {
     @State private var showingFirmwareUpdate = false
     @State private var showingPositionsSettings = false
     @State private var showingTSLDiagnostics = false
+    /// Opt-in preview of the iPad-style dashboard while we shake it down.
+    /// Toggle with ⌘⇧M ("View → New Layout (preview)"). Default off so the
+    /// production-tested ContentView stays the default during live use.
+    @AppStorage("useNewDashboard") private var useNewDashboard = false
 
     init() {
         updaterController = SPUStandardUpdaterController(
@@ -24,7 +28,7 @@ struct C200ControllerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            rootView
                 .environmentObject(cameraManager)
                 .environmentObject(presetManager)
                 .sheet(isPresented: $showingTallySettings) {
@@ -71,6 +75,21 @@ struct C200ControllerApp: App {
                 }
                 .keyboardShortcut("D", modifiers: [.command, .shift])
             }
+            CommandGroup(after: .toolbar) {
+                Button(useNewDashboard ? "Use Classic Layout" : "Use New Layout (Preview)") {
+                    useNewDashboard.toggle()
+                }
+                .keyboardShortcut("M", modifiers: [.command, .shift])
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var rootView: some View {
+        if useNewDashboard {
+            MacOSDashboardView()
+        } else {
+            ContentView()
         }
     }
 }

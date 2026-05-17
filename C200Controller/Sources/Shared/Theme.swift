@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Color and style tokens for the iOS/iPadOS app. Mirrors the HTML preview at
-/// docs/ui-redesign-preview.html — system-blue accent, true-black background,
-/// translucent materials.
+/// Shared color and style tokens for iPad, iPhone, and macOS. Mirrors the
+/// HTML preview at docs/ui-redesign-preview.html — system-blue accent,
+/// true-black background, translucent materials.
 enum Theme {
     // Backgrounds
     static let bgPrimary = Color.black

@@ -34,14 +34,25 @@ struct AddCameraSheet: View {
                 }
             }
             .navigationTitle("Add Camera")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
             }
+            #else
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            #endif
         }
         .preferredColorScheme(.dark)
+        #if os(macOS)
+        .frame(minWidth: 480, minHeight: 460)
+        #endif
     }
 
     // MARK: - ESP32 mode
@@ -104,9 +115,11 @@ struct AddCameraSheet: View {
         Section("Add by IP") {
             HStack {
                 TextField("ESP32 IP address", text: $manualESP32IP)
+                    #if os(iOS)
                     .keyboardType(.numbersAndPunctuation)
-                    .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
+                    #endif
+                    .autocorrectionDisabled()
                     .font(.body.monospaced())
                 Button("Add") {
                     let ip = manualESP32IP.trimmingCharacters(in: .whitespaces)
@@ -128,9 +141,11 @@ struct AddCameraSheet: View {
         Section {
             HStack {
                 TextField("Camera IP address", text: $manualCameraIP)
+                    #if os(iOS)
                     .keyboardType(.numbersAndPunctuation)
-                    .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
+                    #endif
+                    .autocorrectionDisabled()
                     .font(.body.monospaced())
                 Button("Add") {
                     let ip = manualCameraIP.trimmingCharacters(in: .whitespaces)
