@@ -1062,8 +1062,98 @@ struct TileTallySection: View {
                         .buttonStyle(.plain).help("Clear tally")
                     }
                 }
+
+                // TSL diagnostics (firmware 1.2.1+) — proves the chain end-to-end
+                TSLDiagnosticsRow(state: state, expectedIndex: tslIndex)
             }
         }
+    }
+}
+
+/// Per-box receiver diagnostics. Top line is the binary "Carbonite connected?"
+/// + per-second packet rates. Second line shows the last packet's index/state,
+/// with a red highlight if the seen index doesn't match what the box is
+/// filtering for (the most common silent failure mode).
+struct TSLDiagnosticsRow: View {
+    @ObservedObject var state: CameraState
+    let expectedIndex: Int
+
+    private var ageText: String {
+        guard let ms = state.tslLastPacketAgeMs else { return "never" }
+        if ms < 1000 { return "\(ms)ms ago" }
+        let secs = Double(ms) / 1000.0
+        if secs < 60 { return String(format: "%.1fs ago", secs) }
+        return "\(Int(secs / 60))m ago"
+    }
+
+    private var indexMismatch: Bool {
+        // Only flag if we've actually seen a packet AND filter is configured.
+        state.tslLastPacketAgeMs != nil && expectedIndex > 0 &&
+            state.tslLastIndexSeen > 0 && state.tslLastIndexSeen != expectedIndex
+    }
+
+    private var stateColor: Color {
+        switch state.tslLastState {
+        case "program": return .error
+        case "preview": return .success
+        case "both":    return .warning
+        default:        return Color(white: 0.4)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            // Top: Carbonite connection + packet counts
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(state.tslClientConnected ? Color.success : Color(white: 0.3))
+                    .frame(width: 6, height: 6)
+                Text(state.tslClientConnected ? "Carbonite" : "no switcher")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(state.tslClientConnected ? .success : .textSecondary)
+
+                Spacer()
+
+                Text("\(state.tslPacketsMatched) / \(state.tslPacketsTotal)")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.textSecondary)
+                    .help("Matched our index / total parsed")
+            }
+
+            // Bottom: last packet timing + index/state
+            HStack(spacing: 6) {
+                Text(ageText)
+                    .font(.system(size: 9))
+                    .foregroundColor(.textSecondary)
+
+                Spacer()
+
+                if state.tslLastPacketAgeMs != nil {
+                    HStack(spacing: 3) {
+                        Text("ID")
+                            .font(.system(size: 9))
+                            .foregroundColor(.textSecondary)
+                        Text("\(state.tslLastIndexSeen)")
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundColor(indexMismatch ? .error : .textPrimary)
+                        Text(state.tslLastState)
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(stateColor)
+                    }
+                    .help(indexMismatch
+                          ? "MISMATCH: Carbonite is sending ID \(state.tslLastIndexSeen) but box filters for \(expectedIndex)"
+                          : "Last UMD packet contents")
+                }
+            }
+            if indexMismatch {
+                Text("⚠︎ Carbonite sends ID \(state.tslLastIndexSeen), box filters for \(expectedIndex)")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.error)
+            }
+        }
+        .padding(7)
+        .background(Color.backgroundCard)
+        .cornerRadius(5)
     }
 }
 

@@ -113,7 +113,7 @@
 
 static const char *TAG = "C200_CTRL";
 
-#define FIRMWARE_VERSION "1.2.0"
+#define FIRMWARE_VERSION "1.2.1"
 
 // WiFi roaming: trigger an AP rescan when current signal drops below this.
 // Pairs with WIFI_ALL_CHANNEL_SCAN + WIFI_CONNECT_AP_BY_SIGNAL so the reconnect
@@ -871,6 +871,20 @@ static bool     s_tsl_state_preview = false;
 // deferred OFF should be applied. Cancelled if a new non-OFF packet arrives.
 static int64_t  s_tsl_pending_off_us = 0;
 
+// ---- Diagnostic counters (1.3.0+) ----
+// All exposed via /api/status so the dashboard can prove each link of the
+// Carbonite → TCP → parser → filter chain is working. Single-writer (TSL
+// listener task) / single-reader (HTTP handler) pattern; volatile so the
+// reader sees fresh values without a mutex. int64 has potential read tearing
+// on 32-bit reads, but for diagnostics we accept the rare half-update.
+static volatile bool     s_tsl_diag_client_connected = false;
+static volatile uint32_t s_tsl_diag_clients_ever     = 0;   // accept() count since boot
+static volatile uint32_t s_tsl_diag_packets_total    = 0;   // every successfully parsed packet
+static volatile uint32_t s_tsl_diag_packets_matched  = 0;   // packets where index == s_tsl_index
+static volatile int64_t  s_tsl_diag_last_packet_us   = 0;   // esp_timer time of last parsed pkt
+static volatile int      s_tsl_diag_last_index_seen  = 0;   // index field of last parsed pkt
+static volatile uint8_t  s_tsl_diag_last_state       = 0;   // 0=off 1=pgm 2=pvw 3=both
+
 // Parse one TSL UMD packet starting at &data[*offset]. Advances *offset past
 // the packet on success. Returns false if data is incomplete (don't advance) or
 // the header byte is unrecognizable (advances by 1 to resync). Supports both
@@ -1100,6 +1114,8 @@ static void tsl_listener_task(void *pvParameters)
             }
             ESP_LOGI(TAG, "TSL: switcher connected from %s",
                      inet_ntoa(client_addr.sin_addr));
+            s_tsl_diag_client_connected = true;
+            s_tsl_diag_clients_ever++;
 
             setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, &rcv_tv, sizeof(rcv_tv));
 
@@ -1119,7 +1135,16 @@ static void tsl_listener_task(void *pvParameters)
                             if (consumed == before) break;   // incomplete; wait for more
                             continue;                         // resync byte skipped
                         }
+                        // Diagnostic counters — record every successfully
+                        // parsed packet, not just the ones matching our index.
+                        // Lets the dashboard show "we ARE receiving packets but
+                        // the Carbonite is sending ID X while we filter for Y".
+                        s_tsl_diag_packets_total++;
+                        s_tsl_diag_last_packet_us = esp_timer_get_time();
+                        s_tsl_diag_last_index_seen = idx;
+                        s_tsl_diag_last_state = (uint8_t)((prog ? 1 : 0) | (prev ? 2 : 0));
                         if (idx == my_index) {
+                            s_tsl_diag_packets_matched++;
                             tsl_apply_state(prog, prev);
                         }
                     }
@@ -1152,9 +1177,11 @@ static void tsl_listener_task(void *pvParameters)
                 }
             }
             close(client_sock);
+            s_tsl_diag_client_connected = false;
         }
 
         close(listen_sock);
+        s_tsl_diag_client_connected = false;
     }
 }
 
@@ -1899,6 +1926,38 @@ static esp_err_t status_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(response, "tsl_index", tsl_idx);
     cJSON_AddNumberToObject(response, "tsl_port",  (double)tsl_port_now);
     cJSON_AddBoolToObject  (response, "tsl_swap",  tsl_swap_now);
+
+    // TSL diagnostic counters (1.2.1+). Snapshot all into locals first to avoid
+    // any read tearing across the JSON serialization. These let the dashboard
+    // prove each link of the Carbonite → TCP → parser → filter chain.
+    bool     diag_client     = s_tsl_diag_client_connected;
+    uint32_t diag_clients_ev = s_tsl_diag_clients_ever;
+    uint32_t diag_total      = s_tsl_diag_packets_total;
+    uint32_t diag_matched    = s_tsl_diag_packets_matched;
+    int64_t  diag_last_us    = s_tsl_diag_last_packet_us;
+    int      diag_last_idx   = s_tsl_diag_last_index_seen;
+    uint8_t  diag_last_state = s_tsl_diag_last_state;
+    cJSON_AddBoolToObject  (response, "tsl_client_connected", diag_client);
+    cJSON_AddNumberToObject(response, "tsl_clients_ever",     (double)diag_clients_ev);
+    cJSON_AddNumberToObject(response, "tsl_packets_total",    (double)diag_total);
+    cJSON_AddNumberToObject(response, "tsl_packets_matched",  (double)diag_matched);
+    // Time since the last successfully parsed packet, in milliseconds. -1 means
+    // "we have never received one" — easier to render in the dashboard than null.
+    int64_t age_ms = -1;
+    if (diag_last_us > 0) {
+        age_ms = (esp_timer_get_time() - diag_last_us) / 1000;
+        if (age_ms < 0) age_ms = 0;
+    }
+    cJSON_AddNumberToObject(response, "tsl_last_packet_age_ms", (double)age_ms);
+    cJSON_AddNumberToObject(response, "tsl_last_index_seen",    (double)diag_last_idx);
+    const char *state_str = "off";
+    switch (diag_last_state) {
+        case 1: state_str = "program"; break;
+        case 2: state_str = "preview"; break;
+        case 3: state_str = "both";    break;
+        default: state_str = "off";    break;
+    }
+    cJSON_AddStringToObject(response, "tsl_last_state", state_str);
 
     char *json_str = cJSON_Print(response);
     httpd_resp_set_type(req, "application/json");

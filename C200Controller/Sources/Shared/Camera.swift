@@ -122,6 +122,26 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     // Firmware version (ESP32 only)
     @Published var firmwareVersion = "--"
 
+    // ---- TSL diagnostics (firmware 1.2.1+) ----
+    // Proves each link of the Carbonite → TCP → parser → filter chain.
+    /// True if the box has an active TCP client (Carbonite) connected on the
+    /// TSL port. False when no switcher is talking to it.
+    @Published var tslClientConnected = false
+    /// Count of total UMD packets the box has parsed since boot (any index).
+    @Published var tslPacketsTotal: Int = 0
+    /// Count of packets that matched the box's configured `tsl_index` filter.
+    @Published var tslPacketsMatched: Int = 0
+    /// Milliseconds since the box last successfully parsed a UMD packet.
+    /// `nil` means the box has never received one.
+    @Published var tslLastPacketAgeMs: Int? = nil
+    /// UMD ID inside the most recently parsed packet, regardless of whether
+    /// it matched our filter. Lets the dashboard surface "Carbonite is sending
+    /// ID X but we're filtering for Y" mismatches.
+    @Published var tslLastIndexSeen: Int = 0
+    /// "off", "program", "preview", or "both" — raw tally bits from the last
+    /// parsed packet.
+    @Published var tslLastState: String = "off"
+
     // Tally state
     @Published var tallyProgram = false
     @Published var tallyPreview = false
@@ -148,6 +168,11 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     private var webSocketTask: URLSessionWebSocketTask?
     private var webSocketReconnectTask: Task<Void, Never>?
     private var wsPingTimer: Timer?          // periodic ping to detect zombie connections
+    /// Periodic /api/status poll for diagnostic fields (TSL packet counters,
+    /// client state, last index seen). WebSocket pushes only fire on state
+    /// changes, so without this the diagnostics would freeze when the box is
+    /// idle. 2-second cadence — fine for debugging, negligible network cost.
+    private var statusPollTask: Task<Void, Never>?
     // OFF debounce for the *tile* indicator only — mirrors the firmware-side
     // Ross transient-OFF absorber so the dashboard tile stays in sync with the
     // physical LED. The board owns the actual tally LED in v1.2+; this only
@@ -274,6 +299,8 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         wsPingTimer?.invalidate()
         wsPingTimer = nil
         pendingOffTask?.cancel()
+        statusPollTask?.cancel()
+        statusPollTask = nil
         reconnectTimer?.invalidate()
         reconnectTimer = nil
         isConnected = false
@@ -335,6 +362,22 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
             try? await fetchESP32CameraState()
         }
         startWebSocket()
+        startStatusDiagnosticsPoll()
+    }
+
+    /// Periodically refreshes /api/status for the diagnostic counters that
+    /// WebSocket pushes don't carry (TSL packets total/matched/last-index).
+    /// Cancels itself on disconnect via stopPolling() / disconnect().
+    private func startStatusDiagnosticsPoll() {
+        statusPollTask?.cancel()
+        statusPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if Task.isCancelled { return }
+                guard let self else { return }
+                try? await self.fetchESP32Status()
+            }
+        }
     }
 
     // MARK: - WebSocket (ESP32 push updates)
@@ -494,6 +537,19 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
             if let fw = json["firmware_version"] as? String {
                 self.firmwareVersion = fw
             }
+
+            // TSL diagnostics (firmware 1.2.1+). Older firmware just omits these
+            // fields and the dashboard shows "—" / 0 — harmless graceful fallback.
+            self.tslClientConnected = json["tsl_client_connected"] as? Bool ?? false
+            self.tslPacketsTotal    = json["tsl_packets_total"]   as? Int ?? 0
+            self.tslPacketsMatched  = json["tsl_packets_matched"] as? Int ?? 0
+            if let age = json["tsl_last_packet_age_ms"] as? Int, age >= 0 {
+                self.tslLastPacketAgeMs = age
+            } else {
+                self.tslLastPacketAgeMs = nil
+            }
+            self.tslLastIndexSeen   = json["tsl_last_index_seen"] as? Int ?? 0
+            self.tslLastState       = json["tsl_last_state"]      as? String ?? "off"
         }
     }
 
