@@ -543,23 +543,56 @@ class CameraManager: ObservableObject {
 
     // MARK: - Board TSL Config Push
 
+    /// One push attempt's outcome. Surfaced to the Tally Sources view so the
+    /// operator can see at a glance which boxes got the new filter and which
+    /// didn't (no WebSocket, send error, etc.).
+    enum PushResult: Equatable {
+        case success
+        case failed(reason: String)
+    }
+    /// Most-recent push outcome per camera id. Updated by `pushTslConfigToAll`
+    /// and any direct `setTslIndex` call.
+    @Published var lastPushResults: [String: PushResult] = [:]
+
     /// Sends the current TSL configuration to one board. Called on every WS
     /// handshake (via `state.onConnected`) so a freshly-rebooted board self-heals
-    /// without any operator action.
+    /// without any operator action. Updates `lastPushResults` so the UI can
+    /// stop pretending offline boxes were synced.
     private func pushTslConfigToESP32(camera: Camera) {
-        guard let state = cameraStates[camera.id] else { return }
+        guard let state = cameraStates[camera.id] else {
+            lastPushResults[camera.id] = .failed(reason: "No camera state")
+            return
+        }
+        let id = camera.id
         state.sendTslConfig(index: camera.tslIndex,
                             port: tslPort,
-                            swap: tslSwapProgramPreview)
+                            swap: tslSwapProgramPreview) { [weak self] error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let error {
+                    self.lastPushResults[id] = .failed(reason: error.localizedDescription)
+                } else {
+                    self.lastPushResults[id] = .success
+                }
+            }
+        }
     }
 
-    /// Pushes current TSL config to every connected board. Called when the user
-    /// changes the global port or swap setting in Tally Settings, and exposed
-    /// to the Tally Sources view for explicit "sync to boxes" actions so the
-    /// operator can guarantee every box has the dashboard's current assignment
-    /// without waiting for a reconnect.
+    /// Pushes current TSL config to every board. Records per-camera outcomes
+    /// in `lastPushResults`. Called when the user changes the global port or
+    /// swap setting in Tally Settings, and from the Tally Sources view so
+    /// the operator can re-sync on demand. Also (re)attempts a connect on
+    /// any camera whose WS is dead so a push doesn't silently no-op when
+    /// the box came back online but the dashboard hasn't noticed yet.
     func pushTslConfigToAll() {
         for camera in cameras {
+            // If the dashboard considers the box offline, kick off a connect
+            // attempt before pushing. The push call below will still no-op
+            // for this iteration, but the next reconnect will deliver via
+            // the `onConnected` re-push path.
+            if let state = cameraStates[camera.id], !state.isConnected {
+                Task { await state.connect() }
+            }
             pushTslConfigToESP32(camera: camera)
         }
     }

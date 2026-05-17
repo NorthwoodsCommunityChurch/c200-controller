@@ -113,7 +113,7 @@
 
 static const char *TAG = "C200_CTRL";
 
-#define FIRMWARE_VERSION "1.2.1"
+#define FIRMWARE_VERSION "1.2.2"
 
 // WiFi roaming: trigger an AP rescan when current signal drops below this.
 // Pairs with WIFI_ALL_CHANNEL_SCAN + WIFI_CONNECT_AP_BY_SIGNAL so the reconnect
@@ -952,7 +952,13 @@ static void tsl_apply_state(bool program, bool preview)
 
     if (going_dark && was_lit) {
         // Defer the OFF — Ross transient OFF absorber. Don't change the LED yet.
-        s_tsl_pending_off_us = esp_timer_get_time() + TSL_OFF_DEBOUNCE_US;
+        // Seed the timer ONLY the first time we see going_dark. Subsequent
+        // OFF packets within the debounce window must NOT reset the timer,
+        // otherwise a switcher that streams OFF packets continuously will hold
+        // the LED green forever (the stuck-green bug).
+        if (s_tsl_pending_off_us == 0) {
+            s_tsl_pending_off_us = esp_timer_get_time() + TSL_OFF_DEBOUNCE_US;
+        }
         return;
     }
 
@@ -1156,6 +1162,12 @@ static void tsl_listener_task(void *pvParameters)
                         ESP_LOGW(TAG, "TSL: recv buffer full with no complete packet, resyncing");
                         buffered = 0;
                     }
+                    // Apply any deferred OFF whose debounce window has expired.
+                    // Previously this only ran on recv() EAGAIN — which never
+                    // fired while a switcher streamed packets continuously,
+                    // causing the LED to stick at PVW/PGM after the source
+                    // genuinely went idle (the stuck-green bug).
+                    tsl_tick_pending_off();
                 } else if (n == 0) {
                     ESP_LOGI(TAG, "TSL: switcher disconnected");
                     break;

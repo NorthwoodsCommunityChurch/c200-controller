@@ -307,20 +307,44 @@ private struct MacAppIdentityRow: View {
     }
 }
 
+/// Renders a camera entry in the sidebar. State is split out into an inner
+/// `@ObservedObject` view so SwiftUI redraws when `isConnected` / tally fields
+/// flip — the previous `let state: CameraState?` capture meant the row never
+/// updated, which is why connected boxes showed as "offline" forever.
 private struct MacSidebarCameraRow: View {
     let camera: Camera
     let state: CameraState?
 
+    var body: some View {
+        if let state {
+            MacSidebarCameraRowInner(camera: camera, state: state)
+        } else {
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(Color.gray.opacity(0.4))
+                    .frame(width: 10, height: 10)
+                Text(camera.name)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Text("—")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct MacSidebarCameraRowInner: View {
+    let camera: Camera
+    @ObservedObject var state: CameraState
+
     private var tallyColor: Color {
-        guard let state else { return Color.gray.opacity(0.4) }
         if state.tallyProgram { return Theme.red }
         if state.tallyPreview { return Theme.green }
         if !state.isConnected { return Color.gray.opacity(0.4) }
         return Color.gray.opacity(0.6)
-    }
-
-    private var isOffline: Bool {
-        state?.isConnected != true
     }
 
     var body: some View {
@@ -329,15 +353,15 @@ private struct MacSidebarCameraRow: View {
                 .fill(tallyColor)
                 .frame(width: 10, height: 10)
                 .shadow(color: tallyColor.opacity(0.6),
-                        radius: (state?.tallyProgram == true || state?.tallyPreview == true) ? 6 : 0)
+                        radius: (state.tallyProgram || state.tallyPreview) ? 6 : 0)
             VStack(alignment: .leading, spacing: 0) {
                 Text(camera.name)
                     .font(.system(size: 13))
-                    .foregroundStyle(isOffline ? .secondary : .primary)
+                    .foregroundStyle(state.isConnected ? .primary : .secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
-            Text(isOffline ? "offline" : camera.ip)
+            Text(state.isConnected ? camera.ip : "offline")
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)

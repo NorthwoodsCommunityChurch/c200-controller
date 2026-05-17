@@ -141,6 +141,16 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     /// "off", "program", "preview", or "both" — raw tally bits from the last
     /// parsed packet.
     @Published var tslLastState: String = "off"
+    /// The UMD ID the box is currently configured to filter for, read from
+    /// `tsl_index` in `/api/status`. This is firmware ground truth — distinct
+    /// from `camera.tslIndex`, which is the dashboard's intended assignment.
+    /// When the two disagree, the dashboard's last push to this box hasn't
+    /// landed yet. -1 means the box hasn't reported a value (pre-1.2.1
+    /// firmware or HTTP not yet polled).
+    @Published var boxTslIndex: Int = -1
+    /// The port the box is listening on for TSL TCP. Mirrors `tsl_port` in
+    /// `/api/status`.
+    @Published var boxTslPort: Int = 0
 
     // Tally state
     @Published var tallyProgram = false
@@ -474,6 +484,12 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
 
         let wasReachable = esp32Reachable
         esp32Reachable = true
+        // An incoming WebSocket message is positive proof the box is reachable.
+        // If a transient HTTP failure cleared `isConnected` earlier, restore it
+        // so the sidebar stops lying about a box that's actively talking to us.
+        if !isConnected {
+            isConnected = true
+        }
         if !wasReachable {
             onConnected?()
             // ESP32 just came back online — re-send brightness since it resets to full on reboot
@@ -557,6 +573,13 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
             }
             self.tslLastIndexSeen   = json["tsl_last_index_seen"] as? Int ?? 0
             self.tslLastState       = json["tsl_last_state"]      as? String ?? "off"
+            // Firmware ground truth: what the box itself thinks its filter is.
+            if let idx = json["tsl_index"] as? Int {
+                self.boxTslIndex = idx
+            }
+            if let port = json["tsl_port"] as? Int {
+                self.boxTslPort = port
+            }
         }
     }
 
@@ -1130,10 +1153,24 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
     /// Sends a tsl_config WebSocket frame to the board telling it which TSL
     /// index to listen for, what port the switcher is sending on, and whether
     /// the program/preview bits are swapped. Board persists to NVS and applies
-    /// immediately. Fire-and-forget; caller is expected to re-send on every
-    /// WS handshake so a freshly-rebooted (or factory-reset) board self-heals.
-    func sendTslConfig(index: Int, port: UInt16, swap: Bool) {
-        guard let task = webSocketTask else { return }
+    /// immediately. Caller is expected to re-send on every WS handshake so a
+    /// freshly-rebooted (or factory-reset) board self-heals.
+    ///
+    /// Returns immediately via the `result` callback so callers can surface
+    /// per-camera success/failure in the UI instead of guessing. `nil` error
+    /// means the WS handed off the frame to the network stack — actual
+    /// delivery is then verified by reading `tsl_index` back from
+    /// `/api/status` and comparing to `index`.
+    func sendTslConfig(index: Int, port: UInt16, swap: Bool,
+                       result: (@Sendable (Error?) -> Void)? = nil) {
+        guard let task = webSocketTask else {
+            let err = NSError(domain: "C200Controller", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "No WebSocket — box unreachable"
+            ])
+            appLog("WS tsl_config skipped for \(camera.name): no socket")
+            result?(err)
+            return
+        }
         let payload: [String: Any] = [
             "type": "tsl_config",
             "index": index,
@@ -1141,7 +1178,13 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
             "swap": swap
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
-              let text = String(data: data, encoding: .utf8) else { return }
+              let text = String(data: data, encoding: .utf8) else {
+            let err = NSError(domain: "C200Controller", code: 2, userInfo: [
+                NSLocalizedDescriptionKey: "Payload encoding failed"
+            ])
+            result?(err)
+            return
+        }
         let name = camera.name
         task.send(.string(text)) { error in
             if let error {
@@ -1149,6 +1192,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
             } else {
                 appLog("WS tsl_config sent to \(name): index=\(index) port=\(port) swap=\(swap)")
             }
+            result?(error)
         }
     }
 

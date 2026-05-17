@@ -103,7 +103,11 @@ struct TallySourcesView: View {
         let pushNote: String
         if let last = lastPushAt {
             let elapsed = Int(Date().timeIntervalSince(last))
-            pushNote = elapsed < 2 ? "  ·  Pushed to boxes just now" : "  ·  Pushed to boxes \(elapsed)s ago"
+            let when = elapsed < 2 ? "just now" : "\(elapsed)s ago"
+            let results = cameraManager.lastPushResults
+            let total = cameraManager.cameras.count
+            let succeeded = results.values.filter { $0 == .success }.count
+            pushNote = "  ·  Pushed to boxes \(when) — \(succeeded) of \(total) succeeded"
         } else {
             pushNote = ""
         }
@@ -241,10 +245,12 @@ struct TallySourcesView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(cameraManager.cameras.enumerated()), id: \.element.id) { idx, camera in
-                        CameraAssignmentRow(camera: camera)
-                            .background(idx.isMultiple(of: 2) ? Color.white.opacity(0.02) : Color.clear)
-                        if idx < cameraManager.cameras.count - 1 {
-                            Divider().overlay(Theme.label4)
+                        if let state = cameraManager.cameraStates[camera.id] {
+                            CameraAssignmentRow(camera: camera, state: state)
+                                .background(idx.isMultiple(of: 2) ? Color.white.opacity(0.02) : Color.clear)
+                            if idx < cameraManager.cameras.count - 1 {
+                                Divider().overlay(Theme.label4)
+                            }
                         }
                     }
                 }
@@ -413,27 +419,72 @@ private struct SourceRow: View {
 
 private struct CameraAssignmentRow: View {
     let camera: Camera
+    @ObservedObject var state: CameraState
     @EnvironmentObject var cameraManager: CameraManager
 
+    /// Dashboard's intended assignment (what we WANT the box to filter for).
+    private var dashboardIndex: Int { camera.tslIndex }
+    /// Box's actually-stored filter, from `/api/status`. -1 means unknown
+    /// (box unreachable or firmware too old to expose `tsl_index`).
+    private var boxIndex: Int { state.boxTslIndex }
+
+    /// When the dashboard hasn't been able to verify the box's stored filter
+    /// (offline, or pre-1.2.1 firmware) we hide the mismatch logic instead of
+    /// flashing yellow at the operator with no actionable signal.
+    private var boxValueIsKnown: Bool { boxIndex >= 0 }
+
     private var matchedSource: TSLDiscoveredID? {
-        guard camera.tslIndex > 0 else { return nil }
-        return cameraManager.discoveredTSLIDs[camera.tslIndex]
+        guard dashboardIndex > 0 else { return nil }
+        return cameraManager.discoveredTSLIDs[dashboardIndex]
     }
 
-    private var statusText: String {
-        if camera.tslIndex == 0 { return "No filter set" }
-        if matchedSource != nil { return "Receiving UMD \(camera.tslIndex)" }
-        return "Filter UMD \(camera.tslIndex) — not in switcher stream"
+    private enum RowState {
+        case noFilter                 // dashboard has no assignment
+        case mismatch                 // box's stored filter ≠ dashboard intent
+        case missingFromStream        // assignment correct but switcher isn't sending that ID
+        case boxUnknown               // can't query box (offline / old firmware)
+        case ok                       // box matches dashboard AND switcher is sending the ID
     }
+
+    private var rowState: RowState {
+        if dashboardIndex == 0 { return .noFilter }
+        if !boxValueIsKnown    { return .boxUnknown }
+        if boxIndex != dashboardIndex { return .mismatch }
+        if matchedSource == nil { return .missingFromStream }
+        return .ok
+    }
+
     private var statusIcon: String {
-        if camera.tslIndex == 0 { return "circle.dashed" }
-        if matchedSource != nil { return "checkmark.circle.fill" }
-        return "exclamationmark.triangle.fill"
+        switch rowState {
+        case .noFilter:          return "circle.dashed"
+        case .mismatch:          return "exclamationmark.arrow.triangle.2.circlepath"
+        case .missingFromStream: return "exclamationmark.triangle.fill"
+        case .boxUnknown:        return "questionmark.circle"
+        case .ok:                return "checkmark.circle.fill"
+        }
     }
     private var statusColor: Color {
-        if camera.tslIndex == 0 { return Theme.label3 }
-        if matchedSource != nil { return Theme.green }
-        return Theme.yellow
+        switch rowState {
+        case .noFilter:          return Theme.label3
+        case .mismatch:          return Theme.orange
+        case .missingFromStream: return Theme.yellow
+        case .boxUnknown:        return Theme.label3
+        case .ok:                return Theme.green
+        }
+    }
+    private var statusText: String {
+        switch rowState {
+        case .noFilter:
+            return "No filter set"
+        case .mismatch:
+            return "Box says UMD \(boxIndex) · dashboard says \(dashboardIndex) — click Push to boxes"
+        case .missingFromStream:
+            return "Filtering UMD \(dashboardIndex) — switcher isn't sending that ID"
+        case .boxUnknown:
+            return "Filter UMD \(dashboardIndex) (box offline — can't verify)"
+        case .ok:
+            return "Filtering UMD \(dashboardIndex) — \(state.tslPacketsMatched) matched"
+        }
     }
 
     var body: some View {
@@ -454,12 +505,12 @@ private struct CameraAssignmentRow: View {
                 }
                 Text(statusText)
                     .font(.system(size: 11))
-                    .foregroundStyle(matchedSource == nil && camera.tslIndex > 0 ? Theme.yellow : Theme.label2)
+                    .foregroundStyle(textColor)
             }
 
             Spacer()
 
-            if let src = matchedSource {
+            if let src = matchedSource, rowState == .ok {
                 HStack(spacing: 5) {
                     Circle()
                         .fill(src.isProgram ? Theme.red : (src.isPreview ? Theme.green : Theme.label3))
@@ -474,5 +525,13 @@ private struct CameraAssignmentRow: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    private var textColor: Color {
+        switch rowState {
+        case .mismatch:          return Theme.orange
+        case .missingFromStream: return Theme.yellow
+        default:                 return Theme.label2
+        }
     }
 }
