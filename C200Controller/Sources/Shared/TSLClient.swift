@@ -31,6 +31,32 @@ class TSLClient {
     // the NWConnection receive callback — single-threaded, no lock needed.
     private var lastTallyState: [Int: (program: Bool, preview: Bool)] = [:]
 
+    /// Scores a candidate name string: more printable ASCII letters/digits/
+    /// spaces = better. Returns whichever of `a` / `b` scores higher (or the
+    /// non-nil one if only one decodes). Used to pick between ASCII and
+    /// UTF-16LE interpretations of a TSL 5.0 display field.
+    private static func pickBetterDecode(_ a: String?, _ b: String?) -> String? {
+        func score(_ s: String?) -> Int {
+            guard let s = s, !s.isEmpty else { return -1 }
+            var n = 0
+            for c in s {
+                if c.isASCII && (c.isLetter || c.isNumber || c == " " || c == "-" || c == "_") {
+                    n += 2
+                } else if c.isASCII && c.isPunctuation {
+                    n += 1
+                } else if c.isASCII {
+                    n += 0
+                } else {
+                    n -= 3   // non-ASCII penalty (UTF-16LE garbage)
+                }
+            }
+            return n
+        }
+        let sA = score(a), sB = score(b)
+        if sA <= 0 && sB <= 0 { return nil }
+        return sA >= sB ? a : b
+    }
+
     init(host: String, port: UInt16) {
         // host is ignored - we listen on the specified port for incoming TSL data
         self.port = port
@@ -251,22 +277,36 @@ class TSLClient {
         let isProgram = tally1 > 0
         let isPreview = tally2 > 0
 
-        // Display text: UTF-16LE characters at bytes 12..(12+len). LEN is a
-        // count of UTF-16 code units, so byte count = LEN * 2. Some switchers
-        // send ASCII via TSL 5.0 — fall back to ASCII if UTF-16LE decode fails.
+        // Display text: bytes at offset 12+. The TSL 5.0 spec defines the
+        // length field at bytes 10-11, but vendor implementations disagree on
+        // whether that's a UTF-16 code-unit count or a raw byte count, and
+        // whether text is ASCII or UTF-16LE. Carbonite (Ross) sends plain
+        // ASCII with the length-in-bytes convention; decoding as UTF-16LE
+        // there mangles "Cam 1" into bizarre kanji-like Unicode.
+        //
+        // Strategy: read the length field, clamp to remaining bytes, then try
+        // ASCII first. If the result contains lots of non-printable / non-ASCII
+        // characters, retry as UTF-16LE. Whichever decode yields more printable
+        // ASCII wins.
         var name = ""
         if data.count >= 12 {
-            let textLenCodeUnits = Int(data[10]) | (Int(data[11]) << 8)
-            let textByteCount = textLenCodeUnits * 2
-            let textEnd = min(12 + textByteCount, data.count)
-            if textEnd > 12 {
-                let textBytes = data.subdata(in: 12..<textEnd)
-                if let s = String(data: textBytes, encoding: .utf16LittleEndian) {
-                    name = s.trimmingCharacters(in: .whitespacesAndNewlines)
-                } else if let s = String(data: textBytes, encoding: .ascii) {
-                    name = s.trimmingCharacters(in: CharacterSet(charactersIn: " \0"))
-                }
-            }
+            let textLenRaw = Int(data[10]) | (Int(data[11]) << 8)
+            // Try the length field as raw bytes (most common), but cap to remaining.
+            let asciiByteCount = min(textLenRaw, data.count - 12)
+            let utf16ByteCount = min(textLenRaw * 2, data.count - 12)
+            let asciiEnd = 12 + asciiByteCount
+            let utf16End = 12 + utf16ByteCount
+
+            let asciiCandidate: String? = asciiEnd > 12
+                ? String(data: data.subdata(in: 12..<asciiEnd), encoding: .ascii)
+                    .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " \0")) }
+                : nil
+            let utf16Candidate: String? = utf16End > 12
+                ? String(data: data.subdata(in: 12..<utf16End), encoding: .utf16LittleEndian)
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                : nil
+
+            name = TSLClient.pickBetterDecode(asciiCandidate, utf16Candidate) ?? ""
         }
 
         DispatchQueue.main.async { [weak self] in
