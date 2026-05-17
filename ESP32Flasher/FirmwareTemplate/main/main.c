@@ -113,7 +113,7 @@
 
 static const char *TAG = "C200_CTRL";
 
-#define FIRMWARE_VERSION "1.2.2"
+#define FIRMWARE_VERSION "1.2.3"
 
 // WiFi roaming: trigger an AP rescan when current signal drops below this.
 // Pairs with WIFI_ALL_CHANNEL_SCAN + WIFI_CONNECT_AP_BY_SIGNAL so the reconnect
@@ -1937,6 +1937,22 @@ static esp_err_t status_handler(httpd_req_t *req)
     xSemaphoreGive(s_tsl_cfg_mutex);
     cJSON_AddNumberToObject(response, "tsl_index", tsl_idx);
     cJSON_AddNumberToObject(response, "tsl_port",  (double)tsl_port_now);
+    cJSON_AddBoolToObject  (response, "tsl_swap",  tsl_swap_now);
+
+    // Actual LED state the firmware is currently driving. Lets the dashboard
+    // ground-truth check: "I think the box should be red — does the box agree?"
+    // If `tally_led_state` here disagrees with what the dashboard thinks UMD N
+    // is, the divergence is on the box side (parsing, state machine, wiring).
+    const char *led_str = "off";
+    switch (current_tally_state) {
+        case TALLY_PROGRAM: led_str = "program"; break;
+        case TALLY_PREVIEW: led_str = "preview"; break;
+        case TALLY_BOTH:    led_str = "both";    break;
+        default:            led_str = "off";     break;
+    }
+    cJSON_AddStringToObject(response, "tally_led_state", led_str);
+    cJSON_AddBoolToObject  (response, "tsl_state_program",  s_tsl_state_program);
+    cJSON_AddBoolToObject  (response, "tsl_state_preview",  s_tsl_state_preview);
     cJSON_AddBoolToObject  (response, "tsl_swap",  tsl_swap_now);
 
     // TSL diagnostic counters (1.2.1+). Snapshot all into locals first to avoid
