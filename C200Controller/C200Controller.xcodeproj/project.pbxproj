@@ -59,6 +59,7 @@
 		EF5B846F06543348DFCB36C1 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEA93A49D801C82A2A7AFC3 /* Logger.swift */; };
 		F59FEEB80C8EC752A2559C3C /* CameraDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCD8CD12D264A123B873FB09 /* CameraDetailSheet.swift */; };
 		F7F9BE11C1DF022AA38ABB10 /* MetricControlPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74D99A2B3850FA486E87176D /* MetricControlPopover.swift */; };
+		F81AB1E5CDDDDEF4FF48B9D1 /* TallySourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48811F53B392D8888AC78099 /* TallySourcesView.swift */; };
 		FBF9A0EA76D8D06EF6FFAF33 /* CameraPositionsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B079C34A353EFFCA5F861FA /* CameraPositionsClient.swift */; };
 /* End PBXBuildFile section */
 
@@ -70,6 +71,7 @@
 		34E6DF302D0D331518529C5D /* MobileSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileSettingsView.swift; sourceTree = "<group>"; };
 		40471961E959DC852077AA3D /* iPhoneTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPhoneTabView.swift; sourceTree = "<group>"; };
 		4131A4B9CDC52B07B49E5837 /* Preset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preset.swift; sourceTree = "<group>"; };
+		48811F53B392D8888AC78099 /* TallySourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TallySourcesView.swift; sourceTree = "<group>"; };
 		4C3F970F785519A750071622 /* MetricControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricControl.swift; sourceTree = "<group>"; };
 		4CBD27A9262B7397DA781628 /* FirmwareUpdateSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareUpdateSheet.swift; sourceTree = "<group>"; };
 		5FCC45995E076E117202E7EF /* AddCameraSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddCameraSheet.swift; sourceTree = "<group>"; };
@@ -177,6 +179,7 @@
 				0919E0E2E10CDEF4703ABA68 /* MacOSDashboardView.swift */,
 				FA98E5D968E4ACA62CE3A661 /* PresetsPanel.swift */,
 				C4993C704DD7959E5EFD9573 /* TallySettingsView.swift */,
+				48811F53B392D8888AC78099 /* TallySourcesView.swift */,
 				E15262FCD2FF7A7F09EADA1E /* TSLDiagnosticsView.swift */,
 			);
 			path = macOS;
@@ -408,6 +411,7 @@
 				8B1A2C9B25D19CB88A7FEEEC /* TSLClient.swift in Sources */,
 				55DC954BF1B3FFCD13AD3ABF /* TSLDiagnosticsView.swift in Sources */,
 				22F65C66508BFF3A012C1807 /* TallySettingsView.swift in Sources */,
+				F81AB1E5CDDDDEF4FF48B9D1 /* TallySourcesView.swift in Sources */,
 				66C402441172CAC450E7B9E3 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

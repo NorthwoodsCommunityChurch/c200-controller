@@ -68,9 +68,11 @@ struct MacOSDashboardView: View {
                     .environmentObject(cameraManager)
             }
         case .tally:
-            // Inline access to TSL settings as a sidebar destination so users
-            // don't have to dig through the menu bar.
-            inlineTSLPane
+            TallySourcesView(
+                showingTSLDiagnostics: $showingTSLDiagnostics,
+                showingTallySettings: $showingTallySettings
+            )
+            .environmentObject(cameraManager)
         }
     }
 
@@ -218,32 +220,6 @@ struct MacOSDashboardView: View {
         .help(help)
     }
 
-    // MARK: - Inline TSL pane (sidebar → Tally)
-
-    private var inlineTSLPane: some View {
-        ZStack {
-            Theme.bgPrimary.ignoresSafeArea()
-            VStack(spacing: 12) {
-                Text("Tally / TSL")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(Theme.label)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text("Open the Tally Settings sheet for full configuration, or the TSL Status panel for live diagnostics.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.label2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                HStack {
-                    Button("Tally Settings…") { showingTallySettings = true }
-                        .buttonStyle(.bordered)
-                    Button("TSL Status…") { showingTSLDiagnostics = true }
-                        .buttonStyle(.bordered)
-                    Spacer()
-                }
-                Spacer()
-            }
-            .padding(28)
-        }
-    }
 }
 
 // MARK: - Sidebar (macOS-tailored — no iOS-only modifiers)
