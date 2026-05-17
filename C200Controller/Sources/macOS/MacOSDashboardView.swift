@@ -192,9 +192,8 @@ struct MacOSDashboardView: View {
 
     private var toolbarButtons: some View {
         HStack(spacing: 4) {
-            iconButton("stethoscope", help: "TSL Status (⌘⇧D)") {
-                showingTSLDiagnostics = true
-            }
+            // TSL Status is reachable from the Tally sidebar entry (better
+            // surface), so we don't duplicate it here.
             iconButton("gearshape", help: "TSL Settings (⌘⇧T)") {
                 showingTallySettings = true
             }

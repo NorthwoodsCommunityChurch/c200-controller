@@ -23,6 +23,8 @@ struct CameraCardView: View {
             }
         }
         .padding(14)
+        .frame(minHeight: 230)
+        .frame(maxHeight: .infinity, alignment: .top)
         .background(Theme.bgCard, in: RoundedRectangle(cornerRadius: 22))
         .overlay(
             RoundedRectangle(cornerRadius: 22)
@@ -149,6 +151,7 @@ struct CameraCardView: View {
     // MARK: - Offline
     private var offlineBlock: some View {
         VStack(spacing: 8) {
+            Spacer(minLength: 0)
             Text("Offline")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Theme.label2)
@@ -160,9 +163,9 @@ struct CameraCardView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.label3)
             }
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Border / glow based on tally

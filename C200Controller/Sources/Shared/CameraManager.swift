@@ -554,8 +554,11 @@ class CameraManager: ObservableObject {
     }
 
     /// Pushes current TSL config to every connected board. Called when the user
-    /// changes the global port or swap setting in Tally Settings.
-    private func pushTslConfigToAll() {
+    /// changes the global port or swap setting in Tally Settings, and exposed
+    /// to the Tally Sources view for explicit "sync to boxes" actions so the
+    /// operator can guarantee every box has the dashboard's current assignment
+    /// without waiting for a reconnect.
+    func pushTslConfigToAll() {
         for camera in cameras {
             pushTslConfigToESP32(camera: camera)
         }

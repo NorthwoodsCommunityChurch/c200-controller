@@ -16,15 +16,13 @@ struct TallySourcesView: View {
     @EnvironmentObject var cameraManager: CameraManager
     @Binding var showingTSLDiagnostics: Bool
     @Binding var showingTallySettings: Bool
+    @State private var lastPushAt: Date?
 
     private var sortedSources: [TSLDiscoveredID] {
-        cameraManager.discoveredTSLIDs.values.sorted { a, b in
-            // Live (active) first, then by packet count desc, then UMD ID asc.
-            if a.isProgram != b.isProgram { return a.isProgram }
-            if a.isPreview != b.isPreview { return a.isPreview }
-            if a.packetCount != b.packetCount { return a.packetCount > b.packetCount }
-            return a.umdID < b.umdID
-        }
+        // Stable ordering by UMD ID ascending so the list doesn't shuffle as
+        // PGM/PVW state flicks between sources. The live state is shown in
+        // the State column — order shouldn't depend on it.
+        cameraManager.discoveredTSLIDs.values.sorted { $0.umdID < $1.umdID }
     }
 
     var body: some View {
@@ -43,6 +41,17 @@ struct TallySourcesView: View {
                 }
             }
         }
+        .onAppear {
+            // Belt-and-suspenders: every time the operator opens this view, force
+            // every connected box to re-receive its tsl_config so dashboard intent
+            // and box NVS are guaranteed to agree.
+            pushNow()
+        }
+    }
+
+    private func pushNow() {
+        cameraManager.pushTslConfigToAll()
+        lastPushAt = Date()
     }
 
     // MARK: - Header
@@ -59,6 +68,14 @@ struct TallySourcesView: View {
             }
             Spacer()
             tslPill
+            Button {
+                pushNow()
+            } label: {
+                Label("Push to boxes", systemImage: "arrow.up.to.line")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .buttonStyle(.borderedProminent)
+            .help("Re-send the current UMD assignment to every connected ESP32 box now.")
             Button {
                 showingTSLDiagnostics = true
             } label: {
@@ -83,17 +100,24 @@ struct TallySourcesView: View {
     }
 
     private var headerSubtitle: String {
+        let pushNote: String
+        if let last = lastPushAt {
+            let elapsed = Int(Date().timeIntervalSince(last))
+            pushNote = elapsed < 2 ? "  ·  Pushed to boxes just now" : "  ·  Pushed to boxes \(elapsed)s ago"
+        } else {
+            pushNote = ""
+        }
         if !cameraManager.tslEnabled {
-            return "TSL listener is off. Turn it on in Tally Settings."
+            return "TSL listener is off. Turn it on in Tally Settings.\(pushNote)"
         }
         if !cameraManager.tslListening {
-            return "Listener failed to bind to TCP :\(cameraManager.tslPort)"
+            return "Listener failed to bind to TCP :\(cameraManager.tslPort)\(pushNote)"
         }
         if !cameraManager.tslClientConnected {
-            return "Listening on TCP :\(cameraManager.tslPort) — no switcher connected yet"
+            return "Listening on TCP :\(cameraManager.tslPort) — no switcher connected yet\(pushNote)"
         }
         let n = cameraManager.discoveredTSLIDs.count
-        return "Switcher is sending \(n) UMD ID\(n == 1 ? "" : "s"). Assign each to a camera below."
+        return "Switcher is sending \(n) UMD ID\(n == 1 ? "" : "s"). Assign each to a camera below.\(pushNote)"
     }
 
     private var tslPill: some View {
