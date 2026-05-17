@@ -171,11 +171,6 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
 
     // Rate-limit the oled_number=0 triggered push (5-second cooldown)
     private var lastPositionsPushAttempt: Date = .distantPast
-    /// Last time we sent a brightness update to this box. Rate-limited to
-    /// once per 30 s so that flapping WebSocket connections (which used to
-    /// fire `sendBrightness` every 3 s via the `!wasReachable` path) can't
-    /// race the TSL state machine and clobber the LED color mid-cut.
-    private var lastBrightnessSendAttempt: Date = .distantPast
 
     // Networking
     private var pollTimer: Timer?
@@ -238,11 +233,8 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
                     if success {
                         reconnectAttempt = 0
                         startPolling()
-                        // Restore saved brightness on connect
-                        let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
-                        let pct = savedPct == 0 ? 1 : savedPct
-                        let esp32Value = Int(Double(pct) / 100.0 * 255.0)
-                        Task { await self.sendBrightness(esp32Value) }
+                        // Brightness is no longer sent from the dashboard —
+                        // the box locks tally LEDs at 1 % in firmware 1.2.10+.
                         onConnected?()
                     } else {
                         scheduleReconnectIfEnabled()
@@ -480,12 +472,23 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         }
     }
 
+    /// Last `tally` field value reported by the box over its WebSocket. Used
+    /// to log box-side LED state TRANSITIONS so we can compare against the
+    /// dashboard's TSL listener log and see if the box's LED is keeping up
+    /// with what the switcher is sending.
+    private var lastBoxTallyState: String = ""
+
     @MainActor
     private func handleWebSocketUpdate(_ text: String) {
         guard let data = text.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
-        let isoVal = (json["gcv"] as? [String: Any])?["value"] as? String ?? "?"
-        appLog("WS \(camera.name): iso=\(isoVal)")
+
+        // Box-side LED state change logging — fires only on transitions.
+        if let tally = json["tally"] as? String, tally != lastBoxTallyState {
+            let prev = lastBoxTallyState
+            lastBoxTallyState = tally
+            appLog("WS \(camera.name): box LED → \(tally) (was \(prev.isEmpty ? "?" : prev))")
+        }
 
         let wasReachable = esp32Reachable
         esp32Reachable = true
@@ -497,17 +500,7 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         }
         if !wasReachable {
             onConnected?()
-            // ESP32 just came back online — re-send brightness since it resets to full on reboot.
-            // Throttled to 30 s so flapping WebSocket connections don't fire sendBrightness
-            // every few seconds, which raced the TSL state machine and clobbered the LED color
-            // mid-cut (stuck-green-on-PGM bug, fixed in firmware 1.2.4 atomically too).
-            if Date().timeIntervalSince(lastBrightnessSendAttempt) > 30 {
-                lastBrightnessSendAttempt = Date()
-                let savedPct = UserDefaults.standard.integer(forKey: "tally_brightness")
-                let pct = savedPct == 0 ? 1 : savedPct
-                let esp32Value = Int(Double(pct) / 100.0 * 255.0)
-                Task { await self.sendBrightness(esp32Value) }
-            }
+            // Brightness is no longer sent — firmware 1.2.10 locks LEDs at 1 %.
         }
 
         // If the board reports oled_number == 0 (just rebooted or display not yet set),
@@ -1221,17 +1214,5 @@ class CameraState: ObservableObject, @preconcurrency Identifiable {
         }
     }
 
-    func sendBrightness(_ value: Int) async {
-        guard camera.connectionType == .esp32 else { return }
-        let clamped = max(0, min(255, value))
-        do {
-            var request = URLRequest(url: URL(string: "http://\(camera.ip)/api/tally/brightness/\(clamped)")!)
-            request.httpMethod = "POST"
-            request.timeoutInterval = 0.4
-            _ = try await session.data(for: request)
-            appLog("Brightness set to \(clamped) on \(camera.name)")
-        } catch {
-            appLog("Brightness command error for \(camera.name): \(error)")
-        }
-    }
+    // sendBrightness removed in 1.2.10 — tally LEDs are locked at 1 % in firmware.
 }

@@ -136,14 +136,12 @@ enum ConnectionType: String, Codable {
 - `/api/camera/wbk/{plus|minus}`
 - `/api/camera/rec` — toggle recording
 
-**Tally control endpoints (POST):**
-- `/api/tally/brightness/{0-255}` — set LED PWM brightness (register BEFORE `/api/tally/*`)
-- `/api/tally/program` — red LED on at current brightness
-- `/api/tally/preview` — green LED on at current brightness
-- `/api/tally/both` — both LEDs on (amber) at current brightness
-- `/api/tally/off` — both LEDs off
+**Tally endpoints (POST):**
+- `/api/tally/identify` — 5-second red+green blink to physically locate a box. Restores prior state after.
 
-**Important:** `/api/tally/brightness/*` must be registered before `/api/tally/*` in the HTTP server. ESP-IDF uses first-match ordering for wildcard routes — if the general wildcard is first, it intercepts brightness requests.
+**Removed in firmware 1.2.9 / 1.2.10:**
+- `/api/tally/{program|preview|off|both}` — the box LED is now driven exclusively by its own TSL listener (`tsl_listener_task`). Allowing external HTTP pushes meant a stale dashboard or test script could clobber the live state, which is exactly what happened on 2026-05-17.
+- `/api/tally/brightness/{0-255}` — LED brightness is now a compile-time constant (~1 %). Talent-friendly dim level; no slider in the dashboard.
 
 **Camera Positions display endpoint (POST):**
 - `/api/display` — receives `{"operator": "Name", "lens": "Lens"}` from Camera Positions app; updates OLED rows 1–2
@@ -391,7 +389,8 @@ Before any public/shared release: move credentials to Keychain (camera) and NVS/
 
 ## Version
 
-Current: `v1.0.27` (build 26)
-CFBundleVersion: 26
-MARKETING_VERSION: 1.0.27
+Current: `v1.2.10` (build 41)
+CFBundleVersion: 41
+MARKETING_VERSION: 1.2.10
+Firmware: 1.2.10 (matched to app version going forward)
 

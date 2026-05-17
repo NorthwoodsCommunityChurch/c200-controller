@@ -6,8 +6,6 @@ struct TallySettingsView: View {
 
     @State private var searchText = ""
     @State private var portText = ""
-    @State private var brightness: Double = Double(UserDefaults.standard.integer(forKey: "tally_brightness") == 0 ? 1 : UserDefaults.standard.integer(forKey: "tally_brightness"))
-    @State private var brightnessDebounce: DispatchWorkItem?
 
     var filteredCameras: [Camera] {
         if searchText.isEmpty {
@@ -68,23 +66,10 @@ struct TallySettingsView: View {
                     Spacer()
                 }
 
-                HStack(spacing: 10) {
-                    Text("LED Brightness:")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Slider(value: $brightness, in: 1...100, step: 1)
-                        .onChange(of: brightness) { newValue in
-                            UserDefaults.standard.set(Int(newValue), forKey: "tally_brightness")
-                            brightnessDebounce?.cancel()
-                            let work = DispatchWorkItem { updateBrightness(Int(newValue)) }
-                            brightnessDebounce = work
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
-                        }
-                    Text("\(Int(brightness))%")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .frame(width: 36, alignment: .trailing)
-                }
+                // LED brightness slider intentionally removed — the tally LEDs
+                // are locked at 1 % so they never wash out talent's eyes on stage.
+                // Boot default in the firmware sets the PWM to ~1 %; nothing
+                // overrides it.
 
                 HStack {
                     Toggle("Swap Program/Preview", isOn: $cameraManager.tslSwapProgramPreview)
@@ -160,15 +145,6 @@ struct TallySettingsView: View {
         if cameraManager.tslClientConnected { return "Switcher connected" }
         if cameraManager.tslListening { return "Listening on port \(cameraManager.tslPort)..." }
         return "Off"
-    }
-
-    private func updateBrightness(_ percent: Int) {
-        let esp32Value = Int(Double(percent) / 100.0 * 255.0)
-        for camera in cameraManager.cameras where camera.connectionType == .esp32 {
-            if let state = cameraManager.cameraStates[camera.id] {
-                Task { await state.sendBrightness(esp32Value) }
-            }
-        }
     }
 
     private func updatePort(_ value: String) {

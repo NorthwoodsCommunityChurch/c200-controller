@@ -113,7 +113,7 @@
 
 static const char *TAG = "C200_CTRL";
 
-#define FIRMWARE_VERSION "1.2.4"
+#define FIRMWARE_VERSION "1.2.10"
 
 // WiFi roaming: trigger an AP rescan when current signal drops below this.
 // Pairs with WIFI_ALL_CHANNEL_SCAN + WIFI_CONNECT_AP_BY_SIGNAL so the reconnect
@@ -543,10 +543,12 @@ typedef enum {
 
 static tally_state_t current_tally_state = TALLY_OFF;
 static SemaphoreHandle_t tally_mutex = NULL;
-// Boot default intentionally dim (~10 %) so a tally command arriving before the
-// dashboard has re-sent the saved brightness after a reboot doesn't flash the
-// LED at 100 %. The dashboard overrides this within seconds on WS reconnect.
-static uint8_t tally_brightness = 25;
+// Tally brightness is LOCKED at ~1 % (PWM value 2 / 255). The dashboard's
+// brightness slider was removed in 1.2.10 — the LED is small, the talent is
+// close, and anything brighter washes out their vision on stage. The
+// brightness HTTP endpoint is also no longer registered, so a stale dashboard
+// build on the LAN can't push a higher value either.
+static const uint8_t tally_brightness = 2;
 static int64_t last_tally_command_us = 0;  // timestamp of last tally command (microseconds)
 #define TALLY_WATCHDOG_MS 8000             // dashboard contact lost after this long with no command
 
@@ -736,13 +738,39 @@ static void ledc_set_tally(ledc_channel_t channel, uint8_t on)
 static TaskHandle_t identify_task_handle = NULL;
 static tally_state_t identify_saved_state = TALLY_OFF;
 
-// Set tally LED state (respects current brightness)
+// 1.2.8 diagnostics — count every tally_led_set call by target state and by
+// caller, so /api/status proves who's driving the LED. If the listener is
+// applying PROGRAM but the LED is green, someone else is overwriting.
+static volatile uint32_t s_tally_setled_off     = 0;
+static volatile uint32_t s_tally_setled_program = 0;
+static volatile uint32_t s_tally_setled_preview = 0;
+static volatile uint32_t s_tally_setled_both    = 0;
+static volatile uint8_t  s_tally_last_setled_state = 0;  // 0=off 1=pgm 2=pvw 3=both
+static volatile int64_t  s_tally_last_setled_us   = 0;
+
+// Set tally LED state (respects current brightness).
+//
+// Mutex acquire is `portMAX_DELAY`, not a timed wait. The mutex is held only
+// for the LEDC duty writes (microseconds), so a finite timeout has no
+// legitimate use case here — its only effect was to silently drop the LED
+// update when something else was momentarily holding the mutex, leaving
+// `current_tally_state` out of sync with the TSL state machine. That was the
+// 1.2.4 "state says PGM, LED says PVW" bug. Block instead.
 static void tally_led_set(tally_state_t state)
 {
     if (!tally_mutex) return;
-    if (!xSemaphoreTake(tally_mutex, pdMS_TO_TICKS(100))) return;
+    xSemaphoreTake(tally_mutex, portMAX_DELAY);
 
     current_tally_state = state;
+
+    // Diagnostic counters — every set, regardless of caller.
+    switch (state) {
+        case TALLY_OFF:     s_tally_setled_off++;     s_tally_last_setled_state = 0; break;
+        case TALLY_PROGRAM: s_tally_setled_program++; s_tally_last_setled_state = 1; break;
+        case TALLY_PREVIEW: s_tally_setled_preview++; s_tally_last_setled_state = 2; break;
+        case TALLY_BOTH:    s_tally_setled_both++;    s_tally_last_setled_state = 3; break;
+    }
+    s_tally_last_setled_us = esp_timer_get_time();
 
     switch (state) {
         case TALLY_OFF:
@@ -832,43 +860,65 @@ static esp_err_t identify_handler(httpd_req_t *req)
 }
 
 // ===========================================================================
-//          TSL UMD DIRECT LISTENER (phase 2 — board is the tally endpoint)
+//          TALLY — TSL UMD DIRECT LISTENER (1.2.6 rewrite from scratch)
 // ===========================================================================
 //
-// Each board listens directly to the video switcher's TSL feed on a TCP port,
-// filters by its configured tally index, applies the LED. The dashboard is no
-// longer in the tally critical path. Config (index, port, swap) is pushed from
-// the dashboard over the existing /ws WebSocket and persisted to NVS so the
-// board comes back configured after any reboot.
+// REFERENCE IMPLEMENTATION: this mirrors the dashboard's tally pipeline,
+// which the user has confirmed renders tally correctly end-to-end.
 //
-// Two pieces of behavior are ported from the dashboard's TSLClient/Camera.swift
-// so the board renders correctly on its own:
-//   - Program-wins resolution: PGM beats PVW when both bits are set (Ross sends
-//     T1+T2 on a PGM packet because it considers PGM "currently visible").
-//   - 150 ms OFF debounce: Ross emits a transient OFF between a camera leaving
-//     PGM and the auto-PVW that follows the next cut. Applying the OFF
-//     immediately makes the LED visibly blink dark in fast-cut sequences.
-//     Deferring the OFF for 150 ms absorbs the transient.
+//   Sources/Shared/TSLClient.swift           — parser + per-index dedup
+//   Sources/Shared/Camera.swift  updateTallyState — program-wins + OFF debounce
+//
+// Each box listens on TCP port 5200 for the switcher's TSL feed, filters for
+// its configured UMD index, and drives the physical LED. The dashboard is
+// NOT involved in the tally critical path.
+//
+// Defaults:
+//   - tsl_index = CAMERA_NUMBER (1-to-1 mapping at flash time). Box for
+//     Cam 1 listens for UMD 1 by default, etc. The dashboard can override
+//     via the `tsl_config` WebSocket message; new value is persisted to NVS.
+//   - tsl_port = 5200.
+//   - swap = false.
+//
+// State machine (mirror of dashboard's updateTallyState):
+//   1. Parse each TSL packet; record diagnostic counters for ALL parsed
+//      packets so we can prove the box is receiving them.
+//   2. Per-index dedup: same-state repeat packets for the same index are
+//      silently dropped before they hit the state machine. Mirrors
+//      `TSLClient.lastTallyState`.
+//   3. For packets matching s_tsl_index, run program-wins resolution:
+//      resolved_prev = preview && !program. Then:
+//        - going_dark && was_lit → schedule LED OFF for now+150ms
+//          (mirror dashboard, absorbs Ross transient OFFs between cuts)
+//        - else → apply target LED state immediately
+//   4. Any non-OFF packet cancels a pending OFF.
+//
+// The 150 ms OFF debounce is exactly what the dashboard tile uses; copying
+// it byte-for-byte is the simplest way to make the LED match the tile.
 
-#define TSL_NVS_NAMESPACE   "tally_cfg"
-#define TSL_NVS_KEY_INDEX   "idx"
-#define TSL_NVS_KEY_PORT    "port"
-#define TSL_NVS_KEY_SWAP    "swap"
+#define TSL_NVS_NAMESPACE    "tally_cfg"
+#define TSL_NVS_KEY_INDEX    "idx"
+#define TSL_NVS_KEY_PORT     "port"
+#define TSL_NVS_KEY_SWAP     "swap"
 
-#define TSL_DEFAULT_PORT    5200
-#define TSL_RECV_BUFSZ      1024
-#define TSL_OFF_DEBOUNCE_US (150LL * 1000LL)
+#define TSL_DEFAULT_PORT     5200
+#define TSL_RECV_BUFSZ       1024
+#define TSL_OFF_DEBOUNCE_MS  150
+#define TSL_DEDUP_TABLE_SIZE 256   // indices >= this are not deduped (rare)
 
-static int      s_tsl_index = 0;          // 0 = unconfigured; board does nothing
+static int      s_tsl_index = 0;          // set by tsl_config_load (defaults to CAMERA_NUMBER)
 static uint16_t s_tsl_port  = TSL_DEFAULT_PORT;
 static bool     s_tsl_swap  = false;
 static SemaphoreHandle_t s_tsl_cfg_mutex = NULL;
 
-// Most recent applied state, used to detect transitions for the OFF debounce.
-static bool     s_tsl_state_program = false;
-static bool     s_tsl_state_preview = false;
-// 0 = no OFF pending; else absolute timestamp (esp_timer microseconds) when the
-// deferred OFF should be applied. Cancelled if a new non-OFF packet arrives.
+// Per-index dedup (mirrors TSLClient.lastTallyState). Bit layout per entry:
+//   bit 0 = "we have seen this index at least once"
+//   bit 1 = last-seen program
+//   bit 2 = last-seen preview
+// Owned by tsl_listener_task; single-threaded, no lock needed.
+static uint8_t  s_tsl_last_state[TSL_DEDUP_TABLE_SIZE] = {0};
+
+// Pending OFF timer (mirror of pendingOffTask in Camera.swift). 0 = none.
 static int64_t  s_tsl_pending_off_us = 0;
 
 // ---- Diagnostic counters (1.3.0+) ----
@@ -884,6 +934,16 @@ static volatile uint32_t s_tsl_diag_packets_matched  = 0;   // packets where ind
 static volatile int64_t  s_tsl_diag_last_packet_us   = 0;   // esp_timer time of last parsed pkt
 static volatile int      s_tsl_diag_last_index_seen  = 0;   // index field of last parsed pkt
 static volatile uint8_t  s_tsl_diag_last_state       = 0;   // 0=off 1=pgm 2=pvw 3=both
+// 1.2.7: distribution of states across all matched-index packets, so we can
+// tell whether Carbonite is sending the box PGM packets at all. If
+// matched_program is 0 while Cam X is held live, the firmware is innocent —
+// Carbonite is delivering a different stream to this destination.
+static volatile uint32_t s_tsl_diag_matched_program  = 0;
+static volatile uint32_t s_tsl_diag_matched_preview  = 0;
+static volatile uint32_t s_tsl_diag_matched_both     = 0;
+static volatile uint32_t s_tsl_diag_matched_off      = 0;
+static volatile int64_t  s_tsl_diag_last_matched_us  = 0;   // when last matching pkt was parsed
+static volatile uint8_t  s_tsl_diag_last_matched_state = 0; // raw bits of last matching pkt
 
 // Parse one TSL UMD packet starting at &data[*offset]. Advances *offset past
 // the packet on success. Returns false if data is incomplete (don't advance) or
@@ -939,8 +999,9 @@ static bool tsl_parse_one(const uint8_t *data, size_t len, size_t *offset,
     return false;
 }
 
-// Apply incoming tally state (after parser + index filter). Implements the
-// program-wins rule and the OFF debounce.
+// Apply matching-index tally state. Direct port of Camera.swift
+// `updateTallyState(program:preview:)` — same program-wins resolution and
+// same 150 ms OFF debounce. Called only for packets that matched s_tsl_index.
 static void tsl_apply_state(bool program, bool preview)
 {
     if (s_tsl_swap) { bool t = program; program = preview; preview = t; }
@@ -948,70 +1009,77 @@ static void tsl_apply_state(bool program, bool preview)
     bool resolved_prev = preview && !program;     // program wins
 
     bool going_dark = !resolved_prog && !resolved_prev;
-    bool was_lit    = s_tsl_state_program || s_tsl_state_preview;
+    bool was_lit    = (current_tally_state == TALLY_PROGRAM) ||
+                      (current_tally_state == TALLY_PREVIEW);
+
+    // Any non-OFF packet cancels a pending OFF immediately. Mirrors the
+    // `pendingOffTask?.cancel()` at the top of updateTallyState.
+    if (!going_dark) {
+        s_tsl_pending_off_us = 0;
+    }
 
     if (going_dark && was_lit) {
-        // Defer the OFF — Ross transient OFF absorber. Don't change the LED yet.
-        // Seed the timer ONLY the first time we see going_dark. Subsequent
-        // OFF packets within the debounce window must NOT reset the timer,
-        // otherwise a switcher that streams OFF packets continuously will hold
-        // the LED green forever (the stuck-green bug).
-        if (s_tsl_pending_off_us == 0) {
-            s_tsl_pending_off_us = esp_timer_get_time() + TSL_OFF_DEBOUNCE_US;
-        }
+        // Schedule the OFF for now + 150 ms. Re-arms unconditionally to match
+        // the dashboard which creates a fresh Task on every call — Carbonite
+        // streams (false,false) packets continuously between cuts and the
+        // dashboard tile still goes dark when they persist, so we should too.
+        s_tsl_pending_off_us = esp_timer_get_time() +
+                               ((int64_t)TSL_OFF_DEBOUNCE_MS * 1000LL);
         return;
     }
 
-    // Any non-OFF packet cancels a pending OFF immediately.
-    s_tsl_pending_off_us = 0;
-    s_tsl_state_program  = resolved_prog;
-    s_tsl_state_preview  = resolved_prev;
-
-    tally_state_t led = resolved_prog ? TALLY_PROGRAM
-                       : resolved_prev ? TALLY_PREVIEW
-                       : TALLY_OFF;
-    tally_led_set(led);
+    tally_state_t target = resolved_prog ? TALLY_PROGRAM
+                          : resolved_prev ? TALLY_PREVIEW
+                          : TALLY_OFF;
+    if (target != current_tally_state) {
+        tally_led_set(target);
+    }
     last_tally_command_us = esp_timer_get_time();
 }
 
-// Called periodically while idle to apply a deferred OFF when its time arrives.
+// Called periodically while the listener task is idle (recv timeout). When
+// the deferred OFF window expires, drop the LED to TALLY_OFF — matches the
+// `Task.sleep(150ms)` body in updateTallyState.
 static void tsl_tick_pending_off(void)
 {
     if (s_tsl_pending_off_us > 0 &&
         esp_timer_get_time() >= s_tsl_pending_off_us) {
         s_tsl_pending_off_us = 0;
-        s_tsl_state_program  = false;
-        s_tsl_state_preview  = false;
-        tally_led_set(TALLY_OFF);
-        last_tally_command_us = esp_timer_get_time();
+        if (current_tally_state != TALLY_OFF) {
+            tally_led_set(TALLY_OFF);
+            last_tally_command_us = esp_timer_get_time();
+        }
     }
 }
 
 static esp_err_t tsl_config_load(void)
 {
-    nvs_handle_t h;
-    esp_err_t err = nvs_open(TSL_NVS_NAMESPACE, NVS_READONLY, &h);
-    if (err == ESP_ERR_NVS_NOT_FOUND) {
-        ESP_LOGI(TAG, "TSL: no saved config (factory state)");
-        return ESP_OK;
-    }
-    if (err != ESP_OK) return err;
-
-    int32_t  idx  = 0;
+    // Defaults — used when NVS has no saved config (fresh box) or when an
+    // individual key is missing. 1-to-1 mapping: this box listens for UMD
+    // equal to its build-time CAMERA_NUMBER.
+    int32_t  idx  = (int32_t)CAMERA_NUMBER;
     uint16_t port = TSL_DEFAULT_PORT;
     uint8_t  swap = 0;
-    nvs_get_i32(h, TSL_NVS_KEY_INDEX, &idx);
-    nvs_get_u16(h, TSL_NVS_KEY_PORT,  &port);
-    nvs_get_u8 (h, TSL_NVS_KEY_SWAP,  &swap);
-    nvs_close(h);
+
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(TSL_NVS_NAMESPACE, NVS_READONLY, &h);
+    if (err == ESP_OK) {
+        nvs_get_i32(h, TSL_NVS_KEY_INDEX, &idx);
+        nvs_get_u16(h, TSL_NVS_KEY_PORT,  &port);
+        nvs_get_u8 (h, TSL_NVS_KEY_SWAP,  &swap);
+        nvs_close(h);
+    } else if (err != ESP_ERR_NVS_NOT_FOUND) {
+        return err;
+    }
+    // else: fresh box, no NVS namespace yet — use defaults above.
 
     xSemaphoreTake(s_tsl_cfg_mutex, portMAX_DELAY);
     s_tsl_index = (int)idx;
     s_tsl_port  = port ? port : TSL_DEFAULT_PORT;
     s_tsl_swap  = swap != 0;
     xSemaphoreGive(s_tsl_cfg_mutex);
-    ESP_LOGI(TAG, "TSL: loaded config index=%d port=%u swap=%d",
-             (int)idx, (unsigned)port, (int)swap);
+    ESP_LOGI(TAG, "TSL: index=%d port=%u swap=%d (CAMERA_NUMBER=%d)",
+             (int)idx, (unsigned)port, (int)swap, CAMERA_NUMBER);
     return ESP_OK;
 }
 
@@ -1054,10 +1122,13 @@ static void tsl_listener_task(void *pvParameters)
         port = s_tsl_port;
         xSemaphoreGive(s_tsl_cfg_mutex);
 
+        // Reset per-index dedup whenever this task (re)starts so a config
+        // change can't suppress the next genuine transition.
+        memset(s_tsl_last_state, 0, sizeof(s_tsl_last_state));
+        s_tsl_pending_off_us = 0;
+
         if (my_index <= 0) {
             // Not configured yet — wait for dashboard to push tsl_config.
-            // Re-check every second; debounce still ticks but there shouldn't
-            // be any pending OFF when we've never received a packet.
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
@@ -1103,7 +1174,7 @@ static void tsl_listener_task(void *pvParameters)
 
             if (client_sock < 0) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                    tsl_tick_pending_off();
+                    tsl_tick_pending_off();   // OFF debounce still needs to fire
                     // Check for config changes between accept polls
                     xSemaphoreTake(s_tsl_cfg_mutex, portMAX_DELAY);
                     bool changed = (s_tsl_index != my_index) || (s_tsl_port != port);
@@ -1143,14 +1214,45 @@ static void tsl_listener_task(void *pvParameters)
                         }
                         // Diagnostic counters — record every successfully
                         // parsed packet, not just the ones matching our index.
-                        // Lets the dashboard show "we ARE receiving packets but
-                        // the Carbonite is sending ID X while we filter for Y".
                         s_tsl_diag_packets_total++;
                         s_tsl_diag_last_packet_us = esp_timer_get_time();
                         s_tsl_diag_last_index_seen = idx;
                         s_tsl_diag_last_state = (uint8_t)((prog ? 1 : 0) | (prev ? 2 : 0));
+
+                        // Matched-index counters: increment for every received
+                        // packet that hits this box's UMD index, BEFORE the
+                        // dedup. Gives an honest count of what Carbonite is
+                        // delivering. If, while Cam X is held live, the
+                        // `matched_program` count is zero, the firmware is
+                        // innocent and Carbonite is sending a different
+                        // stream to this destination.
                         if (idx == my_index) {
                             s_tsl_diag_packets_matched++;
+                            s_tsl_diag_last_matched_us    = esp_timer_get_time();
+                            s_tsl_diag_last_matched_state = (uint8_t)((prog ? 1 : 0) | (prev ? 2 : 0));
+                            if (prog && prev)        s_tsl_diag_matched_both++;
+                            else if (prog)           s_tsl_diag_matched_program++;
+                            else if (prev)           s_tsl_diag_matched_preview++;
+                            else                     s_tsl_diag_matched_off++;
+                        }
+
+                        // Per-index dedup — mirror TSLClient.lastTallyState.
+                        // Drop same-state repeats so the apply step only sees
+                        // genuine transitions. Bounded table; indices outside
+                        // the table fall through (no dedup), which is rare
+                        // and harmless because non-matching indices return
+                        // immediately below anyway.
+                        if (idx >= 0 && idx < TSL_DEDUP_TABLE_SIZE) {
+                            uint8_t encoded = (uint8_t)(0x01
+                                              | (prog ? 0x02 : 0)
+                                              | (prev ? 0x04 : 0));
+                            if (s_tsl_last_state[idx] == encoded) {
+                                continue;   // same state as last time for this index
+                            }
+                            s_tsl_last_state[idx] = encoded;
+                        }
+
+                        if (idx == my_index) {
                             tsl_apply_state(prog, prev);
                         }
                     }
@@ -1162,16 +1264,14 @@ static void tsl_listener_task(void *pvParameters)
                         ESP_LOGW(TAG, "TSL: recv buffer full with no complete packet, resyncing");
                         buffered = 0;
                     }
-                    // Apply any deferred OFF whose debounce window has expired.
-                    // Previously this only ran on recv() EAGAIN — which never
-                    // fired while a switcher streamed packets continuously,
-                    // causing the LED to stick at PVW/PGM after the source
-                    // genuinely went idle (the stuck-green bug).
+                    // Pending OFF may have expired during this batch.
                     tsl_tick_pending_off();
                 } else if (n == 0) {
                     ESP_LOGI(TAG, "TSL: switcher disconnected");
                     break;
                 } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    // No bytes for 250 ms — check if a deferred OFF fired,
+                    // and check for config changes.
                     tsl_tick_pending_off();
                     xSemaphoreTake(s_tsl_cfg_mutex, portMAX_DELAY);
                     bool changed = (s_tsl_index != my_index) || (s_tsl_port != port);
@@ -1663,17 +1763,19 @@ static void ws_broadcast_state(void)
     // for tens of ms and breaks the Canon HTTP session.
     cJSON_AddNumberToObject(msg, "wifi_rssi", cached_rssi_dbm);
 
-    // Add tally state
+    // Add tally state. Block on the mutex (held only for µs by `tally_led_set`).
+    // Earlier this used a 50 ms timeout that could silently fall through and
+    // report "off" while the LED was actually red — same class of bug as the
+    // 1.2.4 `tally_led_set` silent-drop.
     const char *tally_str = "off";
-    if (xSemaphoreTake(tally_mutex, pdMS_TO_TICKS(50))) {
-        switch (current_tally_state) {
-            case TALLY_PROGRAM: tally_str = "program"; break;
-            case TALLY_PREVIEW: tally_str = "preview"; break;
-            case TALLY_BOTH: tally_str = "both"; break;
-            default: tally_str = "off"; break;
-        }
-        xSemaphoreGive(tally_mutex);
+    xSemaphoreTake(tally_mutex, portMAX_DELAY);
+    switch (current_tally_state) {
+        case TALLY_PROGRAM: tally_str = "program"; break;
+        case TALLY_PREVIEW: tally_str = "preview"; break;
+        case TALLY_BOTH:    tally_str = "both";    break;
+        default:            tally_str = "off";     break;
     }
+    xSemaphoreGive(tally_mutex);
     cJSON_AddStringToObject(msg, "tally", tally_str);
 
     // Include current OLED camera number so the app can detect when the display
@@ -1943,16 +2045,22 @@ static esp_err_t status_handler(httpd_req_t *req)
     // ground-truth check: "I think the box should be red — does the box agree?"
     // If `tally_led_state` here disagrees with what the dashboard thinks UMD N
     // is, the divergence is on the box side (parsing, state machine, wiring).
+    //
+    // `tsl_state_program` and `tsl_state_preview` are derived from the same
+    // enum so they cannot drift from `tally_led_state`. In 1.2.4 they were
+    // separate globals and could disagree with the LED enum if a
+    // `tally_led_set` mutex acquire timed out — 1.2.5 collapses to one source.
+    tally_state_t led_snapshot = current_tally_state;
     const char *led_str = "off";
-    switch (current_tally_state) {
+    switch (led_snapshot) {
         case TALLY_PROGRAM: led_str = "program"; break;
         case TALLY_PREVIEW: led_str = "preview"; break;
         case TALLY_BOTH:    led_str = "both";    break;
         default:            led_str = "off";     break;
     }
     cJSON_AddStringToObject(response, "tally_led_state", led_str);
-    cJSON_AddBoolToObject  (response, "tsl_state_program",  s_tsl_state_program);
-    cJSON_AddBoolToObject  (response, "tsl_state_preview",  s_tsl_state_preview);
+    cJSON_AddBoolToObject  (response, "tsl_state_program", led_snapshot == TALLY_PROGRAM);
+    cJSON_AddBoolToObject  (response, "tsl_state_preview", led_snapshot == TALLY_PREVIEW);
     cJSON_AddBoolToObject  (response, "tsl_swap",  tsl_swap_now);
 
     // TSL diagnostic counters (1.2.1+). Snapshot all into locals first to avoid
@@ -1986,6 +2094,70 @@ static esp_err_t status_handler(httpd_req_t *req)
         default: state_str = "off";    break;
     }
     cJSON_AddStringToObject(response, "tsl_last_state", state_str);
+
+    // 1.2.7 diagnostics — counts of matched-index packets by state, plus the
+    // most recent matched packet's state and age. Definitive answer to "is
+    // Carbonite sending this box PGM at all?"
+    uint32_t mp = s_tsl_diag_matched_program;
+    uint32_t mv = s_tsl_diag_matched_preview;
+    uint32_t mb = s_tsl_diag_matched_both;
+    uint32_t mo = s_tsl_diag_matched_off;
+    cJSON_AddNumberToObject(response, "tsl_matched_program", (double)mp);
+    cJSON_AddNumberToObject(response, "tsl_matched_preview", (double)mv);
+    cJSON_AddNumberToObject(response, "tsl_matched_both",    (double)mb);
+    cJSON_AddNumberToObject(response, "tsl_matched_off",     (double)mo);
+
+    int64_t mlast_us = s_tsl_diag_last_matched_us;
+    int64_t mage_ms = -1;
+    if (mlast_us > 0) {
+        mage_ms = (esp_timer_get_time() - mlast_us) / 1000;
+        if (mage_ms < 0) mage_ms = 0;
+    }
+    cJSON_AddNumberToObject(response, "tsl_last_matched_age_ms", (double)mage_ms);
+    uint8_t mls = s_tsl_diag_last_matched_state;
+    const char *m_state_str = "off";
+    switch (mls) {
+        case 1: m_state_str = "program"; break;
+        case 2: m_state_str = "preview"; break;
+        case 3: m_state_str = "both";    break;
+        default: m_state_str = "off";    break;
+    }
+    cJSON_AddStringToObject(response, "tsl_last_matched_state", m_state_str);
+
+    // 1.2.8 diagnostics — every tally_led_set call counted by target state.
+    // If the listener applied PROGRAM but `tally_led_state` is PREVIEW, the
+    // setled counts must reflect the truth: some path called set(PREVIEW)
+    // *after* the listener's set(PROGRAM).
+    cJSON_AddNumberToObject(response, "setled_off",     (double)s_tally_setled_off);
+    cJSON_AddNumberToObject(response, "setled_program", (double)s_tally_setled_program);
+    cJSON_AddNumberToObject(response, "setled_preview", (double)s_tally_setled_preview);
+    cJSON_AddNumberToObject(response, "setled_both",    (double)s_tally_setled_both);
+    uint8_t lset = s_tally_last_setled_state;
+    const char *lset_str = "off";
+    switch (lset) {
+        case 1: lset_str = "program"; break;
+        case 2: lset_str = "preview"; break;
+        case 3: lset_str = "both";    break;
+        default: lset_str = "off";    break;
+    }
+    cJSON_AddStringToObject(response, "setled_last", lset_str);
+    int64_t lset_us = s_tally_last_setled_us;
+    int64_t lset_age_ms = -1;
+    if (lset_us > 0) {
+        lset_age_ms = (esp_timer_get_time() - lset_us) / 1000;
+        if (lset_age_ms < 0) lset_age_ms = 0;
+    }
+    cJSON_AddNumberToObject(response, "setled_last_age_ms", (double)lset_age_ms);
+
+    // Per-index dedup table value for THIS box's UMD index. Encodes the last
+    // (program, preview) bits we saw for our index. Bits: 0x01=have_seen,
+    // 0x02=program, 0x04=preview. Helps explain dedup decisions.
+    if (tsl_idx >= 0 && tsl_idx < TSL_DEDUP_TABLE_SIZE) {
+        cJSON_AddNumberToObject(response, "tsl_dedup_my_index",
+                                (double)s_tsl_last_state[tsl_idx]);
+    } else {
+        cJSON_AddNumberToObject(response, "tsl_dedup_my_index", -1.0);
+    }
 
     char *json_str = cJSON_Print(response);
     httpd_resp_set_type(req, "application/json");
@@ -2414,103 +2586,31 @@ static esp_err_t polling_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-// POST /api/tally/{state} - Set tally LED state
-static esp_err_t tally_handler(httpd_req_t *req)
-{
-    api_requests_total++;
+// 1.2.9: POST /api/tally/{state} is INTENTIONALLY GONE.
+//
+// The tally LED is now driven exclusively by the box's own TSL listener
+// (tsl_listener_task). Allowing external HTTP pushes to override that meant
+// any stale dashboard build, Companion module, or test script on the network
+// could clobber the live TSL state — which is exactly what was happening in
+// the 1.2.8 diagnostic run (122 unauthorised PREVIEW sets pinning Cam 1
+// green while it was held PGM).
+//
+// Identify (/api/tally/identify) and brightness (/api/tally/brightness/N)
+// remain, since those don't compete with TSL state — identify is a 5-second
+// blink that restores prior state, and brightness only sets PWM duty.
+//
+// If a future feature legitimately needs to drive tally over HTTP (e.g., a
+// truly disconnected test rig), reintroduce a NAMESPACED endpoint that
+// can't collide with the live TSL pipeline, not the generic /api/tally/*.
+//
+// Returns 410 Gone if any client still POSTs to it after the URI handler
+// itself is unregistered below — though the unregister will normally make
+// the firmware return 404, this comment is left for reviewers.
 
-    // Extract state from URI: /api/tally/program, /api/tally/preview, /api/tally/off
-    const char *uri = req->uri;
-    const char *state_str = strrchr(uri, '/');
-    if (!state_str) {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing tally state");
-        return ESP_FAIL;
-    }
-    state_str++;
-
-    tally_state_t new_state = TALLY_OFF;
-
-    if (strcmp(state_str, "program") == 0) {
-        new_state = TALLY_PROGRAM;
-    } else if (strcmp(state_str, "preview") == 0) {
-        new_state = TALLY_PREVIEW;
-    } else if (strcmp(state_str, "off") == 0) {
-        new_state = TALLY_OFF;
-    } else if (strcmp(state_str, "both") == 0) {
-        new_state = TALLY_BOTH;
-    } else {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid state");
-        return ESP_FAIL;
-    }
-
-    // Live tally wins over identify — cancel any identify blink before applying.
-    identify_cancel_if_running();
-
-    last_tally_command_us = esp_timer_get_time();  // feed watchdog
-    tally_led_set(new_state);
-    ws_broadcast_state();
-
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
-    return ESP_OK;
-}
-
-// POST /api/tally/brightness/{0-255} - Set LED brightness
-static esp_err_t tally_brightness_handler(httpd_req_t *req)
-{
-    const char *uri = req->uri;
-    const char *val_str = strrchr(uri, '/');
-    if (!val_str) {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing brightness value");
-        return ESP_FAIL;
-    }
-    val_str++;
-
-    int val = atoi(val_str);
-    if (val < 0) val = 0;
-    if (val > 255) val = 255;
-
-    // Brightness must be set AND the PWM duties refreshed atomically with
-    // respect to TSL state changes. The previous implementation read
-    // `current_tally_state` outside the mutex, then called `tally_led_set`
-    // with that stale value — if a TSL packet flipped state between the read
-    // and the call, the brightness handler would silently clobber the new
-    // PROGRAM state with the old PREVIEW (the stuck-green-on-PGM bug).
-    if (tally_mutex && xSemaphoreTake(tally_mutex, pdMS_TO_TICKS(100))) {
-        tally_brightness = (uint8_t)val;
-        // Re-apply PWM duties based on the CURRENT state, read inside the
-        // mutex so we observe whatever TSL just set.
-        switch (current_tally_state) {
-            case TALLY_OFF:
-                ledc_set_tally(TALLY_LEDC_RED_CH, 0);
-                ledc_set_tally(TALLY_LEDC_GREEN_CH, 0);
-                break;
-            case TALLY_PROGRAM:
-                ledc_set_tally(TALLY_LEDC_RED_CH, 1);
-                ledc_set_tally(TALLY_LEDC_GREEN_CH, 0);
-                break;
-            case TALLY_PREVIEW:
-                ledc_set_tally(TALLY_LEDC_RED_CH, 0);
-                ledc_set_tally(TALLY_LEDC_GREEN_CH, 1);
-                break;
-            case TALLY_BOTH:
-                ledc_set_tally(TALLY_LEDC_RED_CH, 1);
-                ledc_set_tally(TALLY_LEDC_GREEN_CH, 1);
-                break;
-        }
-        xSemaphoreGive(tally_mutex);
-    } else {
-        // Fall back: still record the new brightness even if mutex is busy;
-        // the next state change will pick it up.
-        tally_brightness = (uint8_t)val;
-    }
-    ws_broadcast_state();
-
-    ESP_LOGI(TAG, "Tally brightness set to %d", val);
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
-    return ESP_OK;
-}
+// /api/tally/brightness/{N} removed in 1.2.10. tally_brightness is a const
+// at compile time (~1 %), so there is nothing to set at runtime and no
+// receiver to be hijacked by a stale dashboard. See the comment on
+// `tally_brightness` above.
 
 // ===========================================================================
 //          OTA UPDATE HANDLERS
@@ -2925,17 +3025,10 @@ static httpd_handle_t start_webserver(void)
         };
         httpd_register_uri_handler(server, &ping_uri);
 
-        // Tally brightness endpoint (must be registered BEFORE /api/tally/* wildcard)
-        httpd_uri_t tally_brightness_uri = {
-            .uri = "/api/tally/brightness/*",
-            .method = HTTP_POST,
-            .handler = tally_brightness_handler,
-            .user_ctx = NULL
-        };
-        httpd_register_uri_handler(server, &tally_brightness_uri);
+        // /api/tally/brightness/* removed in 1.2.10 — brightness is a const,
+        // see tally_brightness_handler comment above.
 
-        // Identify endpoint (must also be registered BEFORE /api/tally/* wildcard —
-        // httpd first-match rule; without this, "identify" would fall through to tally_handler)
+        // Identify endpoint
         httpd_uri_t identify_uri = {
             .uri = "/api/tally/identify",
             .method = HTTP_POST,
@@ -2944,14 +3037,9 @@ static httpd_handle_t start_webserver(void)
         };
         httpd_register_uri_handler(server, &identify_uri);
 
-        // Tally LED control endpoint
-        httpd_uri_t tally_uri = {
-            .uri = "/api/tally/*",
-            .method = HTTP_POST,
-            .handler = tally_handler,
-            .user_ctx = NULL
-        };
-        httpd_register_uri_handler(server, &tally_uri);
+        // /api/tally/* (generic state setter) deliberately NOT registered —
+        // see the comment above the (deleted) tally_handler. The LED is
+        // driven solely by the box's own TSL listener.
 
         // WebSocket endpoint — dashboard connects here for push updates
         httpd_uri_t ws_uri = {
@@ -3398,7 +3486,7 @@ void app_main(void)
     ESP_LOGI(TAG, "  POST /api/camera/wbk/{plus|minus}");
     ESP_LOGI(TAG, "  POST /api/camera/wb/{awb|daylight|tungsten|user1}");
     ESP_LOGI(TAG, "  POST /api/camera/focus/{oneshot|lock|near1|far1}");
-    ESP_LOGI(TAG, "  POST /api/tally/{program|preview|off|both} - Set tally LED");
+    // /api/tally/{state} removed in 1.2.9 — LED is driven only by TSL listener
     ESP_LOGI(TAG, "");
     ESP_LOGI(TAG, "===========================================================");
 
